@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="id" data-tema="auto">
+<head>
+  <meta charset="UTF-8">
+  <!-- Viewport: nyaman dari layar 360 px sampai desktop, dengan safe-area HP berponi -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Swipe.menu — menu digital yang dibalik seperti buku asli</title>
+  <meta name="description" content="Swipe.menu mengubah foto menu menjadi buku digital interaktif. Unggah gambar, atur urutan, bagikan satu tautan — pengunjung membalik halamannya seperti buku asli.">
+  <meta name="theme-color" content="#16150F">
+
+  <!-- Mode tampilan: baca preferensi tersimpan/sistem sebelum halaman dirender
+       supaya tidak ada kilatan warna salah (FOUC) saat membuka situs. -->
+  <script>
+    (function () {
+      try {
+        var simpan = localStorage.getItem('swipe-tema');
+        var tema = (simpan === 'terang' || simpan === 'gelap') ? simpan : 'auto';
+        var efektif = tema;
+        if (tema === 'auto') {
+          efektif = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'gelap' : 'terang';
+        }
+        document.documentElement.setAttribute('data-tema', efektif);
+        document.documentElement.setAttribute('data-tema-pilihan', tema);
+      } catch (e) { /* localStorage diblokir: pakai bawaan */ }
+    })();
+  </script>
+
+  <!-- ===== Open Graph (tampilan saat link dibagikan) ===== -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="id_ID">
+  <meta property="og:title" content="Swipe.menu — menu digital interaktif">
+  <meta property="og:description" content="Unggah foto menu, lalu tampilkan seperti buku asli dengan animasi membalik halaman.">
+  <meta property="og:image" content="assets/menu/01-sampul-depan.svg">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <!-- Google Fonts: Fraunces (judul), Schibsted Grotesk (isi), DM Mono (label angka) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+  <!-- Prapanjang CDN agar library flipbook terunduh lebih cepat -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- =====================================================================
+       GUDANG IKON SVG
+       Simbol dipakai ulang lewat <use>, sehingga ikon tajam di semua
+       densitas layar tanpa file gambar terpisah.
+  ====================================================================== -->
+  <svg class="gudang-ikon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="ikon-kembali" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12H4M10 6l-6 6 6 6"/>
+    </symbol>
+    <symbol id="ikon-panah-kiri" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 5l-7 7 7 7"/>
+    </symbol>
+    <symbol id="ikon-panah-kanan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 5l7 7-7 7"/>
+    </symbol>
+    <symbol id="ikon-awal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 5v14"/><path d="M20 5.5v13L9 12z" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="ikon-akhir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 5v14"/><path d="M4 5.5v13L15 12z" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="ikon-zoom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/><path d="M16.4 16.4L21 21M8.5 11h5M11 8.5v5"/>
+    </symbol>
+    <symbol id="ikon-suara" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9.5h3.2L12 5.5v13L7.2 14.5H4z"/><path d="M15.4 9.2a4 4 0 010 5.6"/><path d="M18 6.6a7.6 7.6 0 010 10.8"/>
+    </symbol>
+    <symbol id="ikon-suara-mati" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9.5h3.2L12 5.5v13L7.2 14.5H4z"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>
+    </symbol>
+    <symbol id="ikon-layar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9V5.6A1.6 1.6 0 015.6 4H9M20 9V5.6A1.6 1.6 0 0018.4 4H15M4 15v3.4A1.6 1.6 0 005.6 20H9M20 15v3.4a1.6 1.6 0 01-1.6 1.6H15"/>
+    </symbol>
+    <symbol id="ikon-matahari" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
+    </symbol>
+    <symbol id="ikon-bulan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.5 14.8A8.6 8.6 0 019.2 3.5 8.7 8.7 0 1020.5 14.8z"/>
+    </symbol>
+    <symbol id="ikon-daftar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="4.5" width="7" height="6.5" rx="1.5"/><rect x="13.5" y="4.5" width="7" height="6.5" rx="1.5"/>
+      <rect x="3.5" y="13" width="7" height="6.5" rx="1.5"/><rect x="13.5" y="13" width="7" height="6.5" rx="1.5"/>
+    </symbol>
+    <symbol id="ikon-tutup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
+    <symbol id="ikon-unggah" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 16.5V4.5M7.5 9L12 4.5 16.5 9M4.5 15v3.5A1.5 1.5 0 006 20h12a1.5 1.5 0 001.5-1.5V15"/>
+    </symbol>
+    <symbol id="ikon-muat-ulang" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12a8 8 0 11-2.4-5.7M20 4v4.5h-4.5"/>
+    </symbol>
+    <symbol id="ikon-gambar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17l4.5-4.5 3.5 3.5 3-3 4 4"/>
+    </symbol>
+    <symbol id="ikon-wa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.6a8.4 8.4 0 01-7.3 12.7L3.6 20.4l4.2-1.1A8.4 8.4 0 1012 3.6z"/>
+    </symbol>
+    <symbol id="ikon-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.1" cy="6.9" r="1" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="ikon-lokasi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 21s7-5.8 7-11a7 7 0 10-14 0c0 5.2 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>
+    </symbol>
+    <symbol id="ikon-panah-atas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19V6M6.5 11.5L12 6l5.5 5.5"/>
+    </symbol>
+    <symbol id="ikon-panah-bawah" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 5v13M6.5 12.5L12 18l5.5-5.5"/>
+    </symbol>
+    <symbol id="ikon-keluar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
+    </symbol>
+    <symbol id="ikon-jilid-biasa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="8.5" y="3.5" width="11" height="17" rx="1.5"/>
+      <path d="M11.5 3.5v17"/>
+    </symbol>
+    <symbol id="ikon-jilid-spiral" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9.5" y="3.5" width="10" height="17" rx="1.5"/>
+      <path d="M7.5 5c2-1.4 3.4 1.4 5.4 0M7.5 9c2-1.4 3.4 1.4 5.4 0M7.5 13c2-1.4 3.4 1.4 5.4 0M7.5 17c2-1.4 3.4 1.4 5.4 0"/>
+    </symbol>
+  </svg>
+
+  <a class="lompat-konten" href="#alat">Lewati ke alat penyusun menu</a>
+
+  <!-- =====================================================================
+       LAYAR 1 — PENGENALAN + PENGATURAN & UNGGAH
+       Atas: identitas Swipe.menu & ajakan mencoba.
+       Bawah: memilih ukuran buku, mengunggah gambar, mengatur urutan,
+       lalu membuka flipbook.
+  ====================================================================== -->
+  <section id="screen-setup" class="screen screen--setup" aria-label="Pengaturan buku menu">
+
+    <header class="situs-header">
+      <a class="wordmark" href="#" aria-label="Swipe.menu — beranda">
+        <img id="logo-header" class="wordmark__ikon" src="assets/logo.svg" alt="" width="40" height="40">
+        <span id="nama-usaha-header" class="wordmark__teks">Swipe.menu</span>
+      </a>
+      <div class="situs-header__aksi">
+        <a class="btn btn--garis btn--kecil situs-header__tautan" href="#alat">Unggah menu</a>
+        <button class="btn btn--ikon btn--tema" data-tema-toggle type="button"
+                aria-pressed="false" aria-label="Ganti mode terang atau gelap">
+          <svg class="ikon ikon--matahari"><use href="#ikon-matahari"></use></svg>
+          <svg class="ikon ikon--bulan"><use href="#ikon-bulan"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ---------- Hero singkat: pengenalan Swipe.menu ---------- -->
+    <section class="hero" aria-labelledby="hero-judul">
+      <div class="hero__teks">
+        <p class="label-mono hero__label">Menu digital · tanpa coding</p>
+        <h1 id="hero-judul" class="hero__judul">Menu kamu, <em>dibalik</em> seperti buku asli.</h1>
+        <p id="tagline-usaha" class="hero__sub">Unggah foto menu, atur urutannya, lalu bagikan satu tautan.</p>
+
+        <div class="hero__aksi">
+          <button id="btn-hero-demo" class="btn btn--utama" type="button">
+            Buka menu demo
+            <svg class="ikon"><use href="#ikon-panah-kanan"></use></svg>
+          </button>
+          <a class="btn btn--garis-terang" href="#alat">Unggah menu sendiri</a>
+        </div>
+
+        <ol class="hero__langkah">
+          <li><span class="label-mono">01</span> Unggah gambar menu</li>
+          <li><span class="label-mono">02</span> Atur urutan halaman</li>
+          <li><span class="label-mono">03</span> Bagikan satu tautan</li>
+        </ol>
+      </div>
+
+      <!-- Tumpukan halaman bergaya CSS: memberi kesan buku yang diswipe -->
+      <div class="hero__visual" aria-hidden="true">
+        <div class="tumpuk">
+          <span class="tumpuk__hal tumpuk__hal--3"></span>
+          <span class="tumpuk__hal tumpuk__hal--2"></span>
+          <span class="tumpuk__hal tumpuk__hal--1">
+            <span class="tumpuk__label label-mono">MENU</span>
+            <span class="tumpuk__baris"></span>
+            <span class="tumpuk__baris tumpuk__baris--pendek"></span>
+            <span class="tumpuk__baris"></span>
+            <span class="tumpuk__baris tumpuk__baris--pendek"></span>
+          </span>
+          <span class="tumpuk__sapu">
+            <svg class="ikon"><use href="#ikon-panah-kanan"></use></svg>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Alat penyusun ---------- -->
+    <main id="alat" class="alat">
+      <div class="alat__kepala">
+        <p class="label-mono">Alat</p>
+        <h2 class="alat__judul">Rakit buku menu kamu</h2>
+        <p class="alat__sub">Pilih ukuran kertas, unggah gambar halaman, atur urutannya, lalu buka bukunya.</p>
+      </div>
+
+      <div class="kartu-grid">
+
+        <!-- ---------- Kartu: ukuran buku ---------- -->
+        <section class="kartu" aria-labelledby="judul-ukuran">
+          <p class="label-mono kartu__nomor">01</p>
+          <h2 id="judul-ukuran" class="kartu__judul">Ukuran Buku</h2>
+
+          <div class="form-baris">
+            <label for="sel-ukuran">Pilih ukuran kertas</label>
+            <select id="sel-ukuran" class="kontrol">
+              <option value="A4">A4 — 210 × 297 mm</option>
+              <option value="A5">A5 — 148 × 210 mm</option>
+              <option value="custom">Custom (ukuran sendiri)…</option>
+            </select>
+          </div>
+
+          <!-- Input custom, hanya tampil bila preset "custom" dipilih -->
+          <div id="wrap-custom" class="form-baris form-baris--ganda" hidden>
+            <div>
+              <label for="in-lebar">Lebar (mm)</label>
+              <input id="in-lebar" class="kontrol" type="number" inputmode="numeric" min="80" max="500" value="150">
+            </div>
+            <div>
+              <label for="in-tinggi">Tinggi (mm)</label>
+              <input id="in-tinggi" class="kontrol" type="number" inputmode="numeric" min="80" max="500" value="210">
+            </div>
+          </div>
+          <p id="pesan-custom" class="pesan-error" role="alert" hidden></p>
+
+          <!-- Bentuk halaman: portrait (tegak) atau landscape (lebar) -->
+          <div class="form-baris">
+            <span class="label-kontrol" id="label-bentuk">Bentuk halaman</span>
+            <div class="pilih-segmen" role="group" aria-labelledby="label-bentuk">
+              <button type="button" class="segmen segmen--orientasi is-aktif" data-orientasi="portrait" aria-pressed="true">
+                Portrait
+              </button>
+              <button type="button" class="segmen segmen--orientasi" data-orientasi="landscape" aria-pressed="false">
+                Landscape
+              </button>
+            </div>
+          </div>
+
+          <!-- Jenis jilid: menentukan tampilan punggung/spine buku -->
+          <div class="form-baris">
+            <span class="label-kontrol" id="label-jilid">Jenis jilid buku</span>
+            <div class="pilih-segmen pilih-segmen--jilid" role="group" aria-labelledby="label-jilid">
+              <button type="button" class="segmen is-aktif" data-jilid="biasa" aria-pressed="true">
+                <svg class="ikon" aria-hidden="true"><use href="#ikon-jilid-biasa"></use></svg>
+                Biasa
+              </button>
+              <button type="button" class="segmen" data-jilid="spiral" aria-pressed="false">
+                <svg class="ikon" aria-hidden="true"><use href="#ikon-jilid-spiral"></use></svg>
+                Spiral Kawat
+              </button>
+            </div>
+          </div>
+
+          <!-- Info rasio + rekomendasi resolusi -->
+          <div class="info-box">
+            <p><strong>Rasio halaman:</strong> <span id="info-rasio">1 : 1,41</span></p>
+            <p><strong>Resolusi gambar disarankan:</strong> <span id="info-resolusi">1240 × 1754 px</span> (±150 dpi)</p>
+            <p class="kecil">Semua gambar sebaiknya punya rasio yang sama dengan ukuran buku ini.</p>
+          </div>
+        </section>
+
+        <!-- ---------- Kartu: unggah halaman ---------- -->
+        <section class="kartu" aria-labelledby="judul-upload">
+          <p class="label-mono kartu__nomor">02</p>
+          <h2 id="judul-upload" class="kartu__judul">Halaman Menu</h2>
+
+          <div id="dropzone" class="dropzone" role="button" tabindex="0"
+               aria-label="Area unggah gambar menu. Tekan Enter untuk memilih file, atau seret gambar ke sini.">
+            <span class="dropzone__ikon" aria-hidden="true">
+              <svg class="ikon"><use href="#ikon-unggah"></use></svg>
+            </span>
+            <p class="dropzone__teks"><strong>Seret &amp; letakkan gambar menu di sini</strong></p>
+            <p class="kecil">atau</p>
+            <button id="btn-pilih-file" class="btn btn--garis" type="button">Pilih File</button>
+            <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+            <p class="kecil">JPG, PNG, atau WebP · maks. <span id="info-maks-mb">5</span> MB per file · maks. <span id="info-maks-hal">40</span> halaman</p>
+          </div>
+
+          <!-- Peringatan rasio + pilihan penyesuaian otomatis -->
+          <div id="banner-rasio" class="banner" role="alert" hidden>
+            <p id="banner-rasio-teks"></p>
+            <div class="banner__aksi">
+              <button id="btn-rasio-crop" class="btn btn--kecil" type="button">Isi penuh (crop)</button>
+              <button id="btn-rasio-fit" class="btn btn--kecil" type="button">Muat penuh (letterbox)</button>
+            </div>
+          </div>
+
+          <div class="daftar-header">
+            <p id="info-halaman" class="kecil">Belum ada halaman.</p>
+            <button id="btn-contoh" class="btn btn--garis btn--kecil" type="button">Gunakan Menu Demo</button>
+          </div>
+
+          <!-- Daftar thumbnail: bisa diurutkan lewat drag & drop / tombol panah -->
+          <ul id="daftar-halaman" class="daftar-halaman" aria-label="Daftar halaman menu"></ul>
+        </section>
+      </div>
+
+      <div class="aksi-bawah">
+        <p id="aksi-bawah-info" class="kecil" aria-live="polite"></p>
+        <button id="btn-lihat" class="btn btn--utama btn--besar" type="button" disabled>
+          Buka Buku Menu
+          <svg class="ikon"><use href="#ikon-panah-kanan"></use></svg>
+        </button>
+      </div>
+    </main>
+
+    <footer class="kaki">
+      <p><span class="label-mono">Swipe.menu</span> — buku menu interaktif. HTML · CSS · JavaScript murni.</p>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       LAYAR 2 — BUKU MENU (FLIPBOOK)
+  ====================================================================== -->
+  <section id="screen-book" class="screen screen--book" aria-label="Buku menu" hidden>
+
+    <header class="book-topbar">
+      <div class="book-topbar__kiri">
+        <button id="btn-kembali" class="btn btn--kecil btn--di-atas" type="button" aria-label="Kembali ke pengaturan">
+          <svg class="ikon"><use href="#ikon-kembali"></use></svg>
+          <span class="teks-tombol">Pengaturan</span>
+        </button>
+      </div>
+
+      <div class="book-topbar__merek">
+        <img id="logo-book" src="assets/logo.svg" alt="" width="26" height="26" hidden>
+        <span id="nama-usaha-book"></span>
+      </div>
+
+      <div class="book-topbar__kanan">
+        <nav class="book-topbar__kontak" aria-label="Kontak">
+          <a id="link-wa" class="tautan-kontak" href="#" target="_blank" rel="noopener" hidden>
+            <svg class="ikon"><use href="#ikon-wa"></use></svg><span class="teks-tombol">WhatsApp</span>
+          </a>
+          <a id="link-ig" class="tautan-kontak" href="#" target="_blank" rel="noopener" hidden>
+            <svg class="ikon"><use href="#ikon-ig"></use></svg><span class="teks-tombol">Instagram</span>
+          </a>
+          <a id="link-lokasi" class="tautan-kontak" href="#" target="_blank" rel="noopener" hidden>
+            <svg class="ikon"><use href="#ikon-lokasi"></use></svg><span class="teks-tombol">Lokasi</span>
+          </a>
+        </nav>
+        <button class="btn btn--ikon btn--di-atas btn--tema" data-tema-toggle type="button"
+                aria-pressed="false" aria-label="Ganti mode terang atau gelap">
+          <svg class="ikon ikon--matahari"><use href="#ikon-matahari"></use></svg>
+          <svg class="ikon ikon--bulan"><use href="#ikon-bulan"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Panggung buku: StPageFlip mengisi elemen #flipbook di dalamnya -->
+    <div id="book-stage" class="book-stage">
+      <div id="zoom-layer" class="zoom-layer">
+        <div id="flip-host" class="flip-host">
+          <div id="flipbook"></div>
+        </div>
+      </div>
+
+      <!-- Overlay jilid buku: kawat spiral (lilitan + lubang tusuk) di tepi
+           punggung. Kosong untuk jilid "Biasa". Posisi & ukurannya diisi
+           app.js dari ukuran buku. -->
+      <div id="jilid-buku" class="jilid" aria-hidden="true"></div>
+
+      <!-- State loading saat buku disiapkan -->
+      <div id="book-loading" class="book-loading" hidden>
+        <div class="kartu-loading">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>Menyiapkan buku menu…</p>
+          <span class="skeleton skeleton--baris" aria-hidden="true"></span>
+          <span class="skeleton skeleton--baris skeleton--pendek" aria-hidden="true"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kendali melayang: petunjuk + toolbar (otomatis sembunyi saat diam) -->
+    <div id="book-kendali" class="book-kendali">
+      <p class="book-petunjuk">Tarik sudut halaman · geser (swipe) di HP · panah ← → pada keyboard</p>
+
+      <nav id="book-toolbar" class="book-toolbar" aria-label="Navigasi buku menu">
+        <div class="toolbar-kelompok">
+          <button id="btn-awal" class="btn btn--tool" type="button" aria-label="Ke halaman awal" title="Awal">
+            <svg class="ikon"><use href="#ikon-awal"></use></svg><span class="teks-tool">Awal</span>
+          </button>
+          <button id="btn-sebelum" class="btn btn--tool" type="button" aria-label="Halaman sebelumnya" title="Sebelum">
+            <svg class="ikon"><use href="#ikon-panah-kiri"></use></svg><span class="teks-tool">Sebelum</span>
+          </button>
+        </div>
+
+        <div class="toolbar-kelompok toolbar-indikator">
+          <p id="ind-halaman" class="indikator" aria-live="polite">1 / 1</p>
+          <div id="progress-halaman" class="progress" role="progressbar"
+               aria-label="Progres membaca" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
+            <span id="progress-isi" class="progress__isi"></span>
+          </div>
+          <form id="form-lompat" class="form-lompat">
+            <label class="form-lompat__label" for="in-lompat">Halaman</label>
+            <input id="in-lompat" class="kontrol kontrol--kecil" type="number" min="1" value="1" inputmode="numeric">
+            <button class="btn btn--kecil btn--lompat" type="submit">OK</button>
+          </form>
+        </div>
+
+        <div class="toolbar-kelompok">
+          <button id="btn-berikut" class="btn btn--tool" type="button" aria-label="Halaman berikutnya" title="Berikut">
+            <svg class="ikon"><use href="#ikon-panah-kanan"></use></svg><span class="teks-tool">Berikut</span>
+          </button>
+          <button id="btn-akhir" class="btn btn--tool" type="button" aria-label="Ke halaman akhir" title="Akhir">
+            <svg class="ikon"><use href="#ikon-akhir"></use></svg><span class="teks-tool">Akhir</span>
+          </button>
+        </div>
+
+        <div class="toolbar-kelompok">
+          <button id="btn-drawer" class="btn btn--tool" type="button" aria-label="Daftar halaman"
+                  aria-expanded="false" aria-controls="drawer-buku" title="Daftar halaman">
+            <svg class="ikon"><use href="#ikon-daftar"></use></svg><span class="teks-tool">Halaman</span>
+          </button>
+          <button id="btn-zoom" class="btn btn--tool" type="button" aria-label="Perbesar tampilan" aria-pressed="false" title="Zoom">
+            <svg class="ikon"><use href="#ikon-zoom"></use></svg><span class="teks-tool">1×</span>
+          </button>
+          <button id="btn-suara" class="btn btn--tool" type="button" aria-label="Efek suara membalik halaman" aria-pressed="true" title="Suara">
+            <svg class="ikon ikon--suara-nyala"><use href="#ikon-suara"></use></svg>
+            <svg class="ikon ikon--suara-mati"><use href="#ikon-suara-mati"></use></svg>
+            <span class="teks-tool">Suara</span>
+          </button>
+          <button id="btn-fullscreen" class="btn btn--tool" type="button" aria-label="Mode layar penuh" aria-pressed="false" title="Layar penuh">
+            <svg class="ikon ikon--layar" aria-hidden="true"><use href="#ikon-layar"></use></svg>
+            <svg class="ikon ikon--keluar" aria-hidden="true"><use href="#ikon-keluar"></use></svg>
+            <span class="teks-tool">Layar</span>
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Laci thumbnail: lompat cepat ke halaman tertentu -->
+    <div id="drawer-overlay" class="drawer-overlay"></div>
+    <aside id="drawer-buku" class="drawer" aria-label="Daftar halaman" aria-hidden="true">
+      <header class="drawer__kepala">
+        <div>
+          <p class="label-mono">Daftar</p>
+          <h2 class="drawer__judul">Halaman</h2>
+        </div>
+        <button id="btn-drawer-tutup" class="btn btn--ikon" type="button" aria-label="Tutup daftar halaman">
+          <svg class="ikon"><use href="#ikon-tutup"></use></svg>
+        </button>
+      </header>
+      <ul id="daftar-thumb" class="drawer__isi"></ul>
+    </aside>
+  </section>
+
+  <!-- Notifikasi singkat (toast) -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Library efek balik halaman (StPageFlip) -->
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+  <!-- Konfigurasi identitas & menu demo (ganti isi file ini untuk klien lain) -->
+  <script src="js/config.js"></script>
+  <!-- Logika utama aplikasi -->
+  <script src="js/app.js"></script>
+</body>
+</html>

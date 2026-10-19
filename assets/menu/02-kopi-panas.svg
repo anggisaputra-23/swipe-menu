@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1754" viewBox="0 0 1240 1754">
+  <!-- Halaman demo: kopi panas -->
+  <rect width="1240" height="1754" fill="#F4EFE4"/>
+
+  <text x="90" y="190" font-family="Helvetica, Arial, sans-serif" font-size="30" letter-spacing="10" fill="#6B6558">HOT COFFEE</text>
+  <text x="90" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="98" fill="#16150F">Kopi Panas</text>
+  <rect x="90" y="342" width="130" height="9" fill="#E8A020"/>
+
+  <g font-family="Helvetica, Arial, sans-serif">
+    <g>
+      <text x="90" y="500" font-family="Georgia, serif" font-size="46" fill="#16150F">Espresso</text>
+      <text x="1150" y="500" text-anchor="end" font-size="40" fill="#16150F">Rp 15.000</text>
+      <line x1="90" y1="522" x2="1150" y2="522" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="566" font-size="30" fill="#6B6558">Hitam pekat, satu tarikan pendek.</text>
+    </g>
+    <g>
+      <text x="90" y="685" font-family="Georgia, serif" font-size="46" fill="#16150F">Americano</text>
+      <text x="1150" y="685" text-anchor="end" font-size="40" fill="#16150F">Rp 18.000</text>
+      <line x1="90" y1="707" x2="1150" y2="707" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="751" font-size="30" fill="#6B6558">Espresso dituang air panas, ringan.</text>
+    </g>
+    <g>
+      <text x="90" y="870" font-family="Georgia, serif" font-size="46" fill="#16150F">Kopi Tubruk</text>
+      <text x="1150" y="870" text-anchor="end" font-size="40" fill="#16150F">Rp 14.000</text>
+      <line x1="90" y1="892" x2="1150" y2="892" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="936" font-size="30" fill="#6B6558">Klasik, diseduh langsung dengan ampas.</text>
+    </g>
+    <g>
+      <text x="90" y="1055" font-family="Georgia, serif" font-size="46" fill="#16150F">Cappuccino</text>
+      <text x="1150" y="1055" text-anchor="end" font-size="40" fill="#16150F">Rp 24.000</text>
+      <line x1="90" y1="1077" x2="1150" y2="1077" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1121" font-size="30" fill="#6B6558">Espresso, susu, dan busa lembut.</text>
+    </g>
+    <g>
+      <text x="90" y="1240" font-family="Georgia, serif" font-size="46" fill="#16150F">Cafe Latte</text>
+      <text x="1150" y="1240" text-anchor="end" font-size="40" fill="#16150F">Rp 24.000</text>
+      <line x1="90" y1="1262" x2="1150" y2="1262" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1306" font-size="30" fill="#6B6558">Lembut dengan susu hangat berbusa tipis.</text>
+    </g>
+    <g>
+      <text x="90" y="1425" font-family="Georgia, serif" font-size="46" fill="#16150F">Mocha</text>
+      <text x="1150" y="1425" text-anchor="end" font-size="40" fill="#16150F">Rp 26.000</text>
+      <line x1="90" y1="1447" x2="1150" y2="1447" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1491" font-size="30" fill="#6B6558">Kopi, cokelat, dan susu dalam satu cangkir.</text>
+    </g>
+  </g>
+
+  <line x1="90" y1="1640" x2="1150" y2="1640" stroke="#16150F" stroke-width="1.5" opacity=".2"/>
+  <text x="90" y="1694" font-family="Helvetica, Arial, sans-serif" font-size="26" letter-spacing="6" fill="#6B6558">SWIPE.MENU · MENU DEMO</text>
+  <text x="1150" y="1694" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="#6B6558">02</text>
+</svg>

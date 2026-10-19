@@ -1,0 +1,16 @@
+# Berkas sistem operasi
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Sampah pengembangan (server lokal, uji coba)
+node_modules/
+*.log
+*.tmp
+.cache/

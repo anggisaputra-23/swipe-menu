@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Logo Swipe.menu</title>
+  <!-- Latar lingkaran tinta (ink) agar tetap tegas di tab terang maupun gelap -->
+  <circle cx="64" cy="64" r="64" fill="#16150F"/>
+  <!-- Dua kurung besar = gestur menyapu (swipe) ke kanan -->
+  <g fill="none" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M42 36 L70 64 L42 92" stroke="#E8A020"/>
+    <path d="M72 36 L100 64 L72 92" stroke="#F4EFE4" opacity=".9"/>
+  </g>
+</svg>
