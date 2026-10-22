@@ -14,7 +14,7 @@ const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_DAYS = 30;
 const MAX_BODY_BYTES = 64 * 1024 * 1024;
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const authAttempts = new Map();
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MIME_TYPES = {
@@ -201,13 +201,32 @@ function hasImageSignature(buffer, mime) {
 }
 
 async function storePage(page) {
-  if (!page || typeof page.dataUrl !== 'string') throw new Error('Salah satu gambar halaman tidak tersedia.');
+  if (!page || typeof page !== 'object') throw new Error('Salah satu gambar halaman tidak tersedia.');
+  if (typeof page.url === 'string') {
+    const url = page.url;
+    const localUpload = /^\/uploads\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(url);
+    const sampleAsset = /^\/?assets\/menu\/[a-z0-9/-]+\.(?:svg|jpg|png|webp)$/.test(url);
+    let blobAsset = false;
+    try {
+      const parsed = new URL(url);
+      blobAsset = parsed.protocol === 'https:' && parsed.hostname.endsWith('.public.blob.vercel-storage.com') &&
+        /^\/menus\/[a-f0-9-]+\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(parsed.pathname);
+    } catch { /* URL bukan URL Blob */ }
+    if (!localUpload && !sampleAsset && !blobAsset) throw new Error('Alamat gambar halaman tidak valid.');
+    return {
+      name: String(page.name || 'Halaman menu').slice(0, 120), url,
+      w: Math.min(10000, Math.max(1, Number(page.w) || 1)),
+      h: Math.min(10000, Math.max(1, Number(page.h) || 1)),
+      fit: page.fit === 'contain' ? 'contain' : 'cover'
+    };
+  }
+  if (typeof page.dataUrl !== 'string') throw new Error('Salah satu gambar halaman tidak tersedia.');
   const match = page.dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
   if (!match) throw new Error('Format gambar halaman tidak dikenali.');
   const mime = match[1];
   const buffer = Buffer.from(match[2], 'base64');
   if (!buffer.length || buffer.length > MAX_IMAGE_BYTES || !hasImageSignature(buffer, mime)) {
-    throw new Error('Gambar harus JPG, PNG, atau WebP dengan ukuran maksimal 5 MB.');
+    throw new Error('Gambar harus JPG, PNG, atau WebP dengan ukuran maksimal 4 MB.');
   }
   const file = `${randomUUID()}.${MIME_EXT[mime]}`;
   await writeFile(path.join(UPLOAD_DIR, file), buffer, { flag: 'wx', mode: 0o644 });
@@ -218,6 +237,29 @@ async function storePage(page) {
     h: Math.min(10000, Math.max(1, Number(page.h) || 1)),
     fit: page.fit === 'contain' ? 'contain' : 'cover'
   };
+}
+
+async function uploadPage(req, res) {
+  const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (!MIME_EXT[mime]) return fail(res, 400, 'Format gambar harus JPG, PNG, atau WebP.');
+  const chunks = [];
+  let total = 0;
+  let tooLarge = false;
+  await new Promise((resolve, reject) => {
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > MAX_IMAGE_BYTES) { tooLarge = true; chunks.length = 0; }
+      else if (!tooLarge) chunks.push(chunk);
+    });
+    req.on('end', resolve);
+    req.on('error', reject);
+  });
+  if (tooLarge) return fail(res, 413, 'Ukuran halaman maksimal 4 MB setelah dikompres.');
+  const buffer = Buffer.concat(chunks);
+  if (!buffer.length || !hasImageSignature(buffer, mime)) return fail(res, 400, 'Isi berkas tidak cocok dengan format gambar.');
+  const file = `${randomUUID()}.${MIME_EXT[mime]}`;
+  await writeFile(path.join(UPLOAD_DIR, file), buffer, { flag: 'wx', mode: 0o644 });
+  return sendJson(res, 201, { url: `/uploads/${file}` });
 }
 
 function removePageFiles(pages) {
@@ -256,7 +298,6 @@ async function saveMenu(req, res, user) {
   try {
     for (const page of body.pages) pages.push(await storePage(page));
   } catch (error) {
-    removePageFiles(pages);
     return fail(res, 400, error.message || 'Gambar tidak dapat disimpan.');
   }
 
@@ -265,7 +306,6 @@ async function saveMenu(req, res, user) {
   const customHeight = body.sizePreset === 'custom' ? Number(body.customHeight) : null;
   if (body.sizePreset === 'custom' && (![customWidth, customHeight].every(Number.isFinite) ||
       customWidth < 80 || customWidth > 500 || customHeight < 80 || customHeight > 500)) {
-    removePageFiles(pages);
     return fail(res, 400, 'Ukuran khusus harus berada antara 80 dan 500 mm.');
   }
 
@@ -278,11 +318,13 @@ async function saveMenu(req, res, user) {
     if (existing) db.prepare(query).run(...values, id, user.id);
     else db.prepare(query).run(...values, id, user.id, now);
   } catch (error) {
-    removePageFiles(pages);
     if (String(error.message).includes('UNIQUE')) return fail(res, 409, 'Alamat itu sudah dipakai. Coba nama lain.');
     throw error;
   }
-  if (existing) removePageFiles(parsePages(existing));
+  if (existing) {
+    const retained = new Set(pages.map((page) => page.url));
+    removePageFiles(parsePages(existing).filter((page) => !retained.has(page.url)));
+  }
   const row = db.prepare('SELECT * FROM menus WHERE id = ?').get(id);
   sendJson(res, existing ? 200 : 201, menuDetail(row));
 }
@@ -313,6 +355,11 @@ async function handleApi(req, res, url) {
   if (method === 'OPTIONS') { res.writeHead(204, { Allow: 'GET, POST, PUT, DELETE, OPTIONS' }); return res.end(); }
 
   if (pathname === '/api/health' && method === 'GET') return sendJson(res, 200, { ok: true });
+  if (pathname === '/api/uploads' && method === 'PUT') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    return uploadPage(req, res);
+  }
   if (pathname === '/api/auth/me' && method === 'GET') {
     const user = currentUser(req);
     return sendJson(res, 200, { user: user ? safeUser(user) : null });

@@ -55,6 +55,23 @@ oleh perangkat yang dapat menjangkaunya. Saat berada di balik reverse proxy,
 isi `PUBLIC_ORIGIN` dengan URL HTTPS dan set `TRUST_PROXY=true` agar validasi
 asal permintaan, cookie, dan pembatas percobaan akun mengikuti proxy tepercaya.
 
+### Deploy ke Vercel
+
+1. Impor repository GitHub `anggisaputra-23/swipe-menu` sebagai project di Vercel.
+2. Buat database Neon PostgreSQL dan tambahkan connection string sebagai
+   environment variable `DATABASE_URL` pada project Vercel.
+3. Buat Vercel Blob store dan tambahkan token tulis-baca sebagai
+   `BLOB_READ_WRITE_TOKEN`.
+4. Deploy project. Tabel akun, sesi, dan menu dibuat otomatis saat API pertama
+   kali dipanggil. Tetapkan `PUBLIC_ORIGIN` ke origin HTTPS project bila ingin
+   memaksa pemeriksaan origin.
+
+Vercel menjalankan `api/index.js` sebagai function dan menyajikan HTML, CSS,
+JavaScript, serta aset contoh secara statis. Gambar unggahan disimpan pada Blob;
+setiap halaman menu yang diunggah dibatasi 4 MB agar tetap di bawah batas request
+function. Nilai rahasia cukup dimasukkan melalui pengaturan Environment Variables
+Vercel dan jangan pernah di-commit ke repository.
+
 ## 2. Struktur Folder
 
 ```

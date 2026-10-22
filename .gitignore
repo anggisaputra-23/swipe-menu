@@ -12,6 +12,8 @@ ehthumbs.db
 # Sampah pengembangan (server lokal, uji coba)
 node_modules/
 data/
+.npm-cache/
+.vercel/
 *.log
 *.tmp
 .cache/

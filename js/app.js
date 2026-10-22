@@ -2165,16 +2165,24 @@
     return data;
   }
 
-  async function gambarKeDataUrl(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Salah satu halaman tidak dapat dibaca.');
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('Gambar halaman gagal disiapkan.'));
-      reader.readAsDataURL(blob);
+  async function siapkanHalamanTerbit(page, index, total) {
+    if (!/^(blob:|data:)/.test(page.url)) {
+      return { name: page.nama, url: page.url, w: page.w, h: page.h, fit: page.fit };
+    }
+    const source = await fetch(page.url);
+    if (!source.ok) throw new Error('Salah satu halaman tidak dapat dibaca.');
+    const image = await source.blob();
+    aturStatusTerbit(`Mengunggah halaman ${index} dari ${total}…`);
+    const response = await fetch('/api/uploads', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': image.type },
+      body: image
     });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Gambar halaman gagal diunggah.'), { status: response.status });
+    page.url = result.url;
+    return { name: page.nama, url: result.url, w: page.w, h: page.h, fit: page.fit };
   }
 
   async function terbitkanMenu() {
@@ -2198,11 +2206,8 @@
       tombol.textContent = 'Menyimpan halaman…';
       aturStatusTerbit('Mengunggah dan menyimpan halaman menu…');
       const pages = [];
-      for (const page of state.pages) {
-        pages.push({
-          name: page.nama, w: page.w, h: page.h, fit: page.fit,
-          dataUrl: await gambarKeDataUrl(page.url)
-        });
+      for (let index = 0; index < state.pages.length; index++) {
+        pages.push(await siapkanHalamanTerbit(state.pages[index], index + 1, state.pages.length));
       }
       const menu = await apiMenu('/api/menus', {
         method: 'POST',
