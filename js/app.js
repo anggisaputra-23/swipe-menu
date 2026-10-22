@@ -27,6 +27,18 @@
     return n;
   }
 
+  /** Ikon SVG dari gudang simbol (#ikon-...), mis. buatIkon('panah-atas'). */
+  function buatIkon(nama, kelas) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', kelas ? `ikon ${kelas}` : 'ikon');
+    svg.setAttribute('aria-hidden', 'true');
+    const pakai = document.createElementNS(NS, 'use');
+    pakai.setAttribute('href', '#ikon-' + nama);
+    svg.appendChild(pakai);
+    return svg;
+  }
+
   /** Tunda pemanggilan (untuk resize, dsb.). */
   function debounce(fn, tunda) {
     let id;
@@ -87,6 +99,10 @@
     halamanAktif: 0,           // indeks halaman aktif (basis 0)
     zoom: { level: 1, tx: 0, ty: 0, fit: 1 },
     soundOn: !!KONFIG.sound.defaultOn,
+    pernahBuka: false,         // buku sudah pernah dibuka (indikator tahap 03)
+    halamanSebelumContoh: null,// halaman pengguna yang dipinjamkan sementara saat melihat contoh
+    gayaSebelumContoh: null,   // konfigurasi pengguna yang dipinjamkan sementara saat melihat contoh
+    gayaPreview: null,         // konfigurasi jilid/orientasi yang sedang dipratinjau
     idSeq: 1
   };
 
@@ -114,6 +130,34 @@
    * ====================================================================== */
   /** Pilihan pengguna: 'auto' (ikut sistem) | 'terang' | 'gelap'. */
   const tema = { pilihan: 'auto' };
+  const KUNCI_PREFERENSI = 'swipe-preferensi-buku';
+
+  function simpanPreferensi() {
+    try {
+      localStorage.setItem(KUNCI_PREFERENSI, JSON.stringify({
+        ukuranPreset: state.ukuranPreset,
+        ukuranCustom: state.ukuranCustom,
+        orientasi: state.orientasi,
+        jilid: state.jilid,
+        soundOn: state.soundOn
+      }));
+    } catch (e) { /* localStorage tidak tersedia: aplikasi tetap berjalan */ }
+  }
+
+  function bacaPreferensi() {
+    try {
+      const data = JSON.parse(localStorage.getItem(KUNCI_PREFERENSI) || 'null');
+      if (!data || typeof data !== 'object') return;
+      if (['A4', 'A5', 'custom'].includes(data.ukuranPreset)) state.ukuranPreset = data.ukuranPreset;
+      if (data.ukuranCustom && Number.isFinite(Number(data.ukuranCustom.w)) &&
+          Number.isFinite(Number(data.ukuranCustom.h))) {
+        state.ukuranCustom = { w: Number(data.ukuranCustom.w), h: Number(data.ukuranCustom.h) };
+      }
+      if (data.orientasi === 'portrait' || data.orientasi === 'landscape') state.orientasi = data.orientasi;
+      if (data.jilid === 'biasa' || data.jilid === 'spiral') state.jilid = data.jilid;
+      if (typeof data.soundOn === 'boolean') state.soundOn = data.soundOn;
+    } catch (e) { /* preferensi rusak atau storage diblokir: gunakan nilai bawaan */ }
+  }
 
   /** Tema yang sedang efektif tampil. */
   function efektifTema() {
@@ -132,7 +176,7 @@
       b.setAttribute('aria-pressed', String(e === 'gelap'));
     });
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', e === 'gelap' ? '#0E0D09' : '#16150F');
+    if (meta) meta.setAttribute('content', e === 'gelap' ? '#1C2723' : '#EFE6D6');
   }
 
   /** Baca preferensi tersimpan, pasang tombol, dengar perubahan sistem. */
@@ -180,12 +224,14 @@
     const aksen = t.accentColor || '#E8A020';
     root.setProperty('--warna-aksen', aksen);
     root.setProperty('--warna-aksen-gelap', t.accentColorGelap || warnaGelap(aksen));
-    root.setProperty('--warna-latar', t.backgroundColor || '#16150F');
+    root.setProperty('--warna-latar', t.backgroundColor || '#1C2723');
+    root.setProperty('--warna-panggung-gelap', t.backgroundColor || '#1C2723');
+    root.setProperty('--warna-panggung-terang', t.backgroundColorLight || '#EFE6D6');
     root.setProperty('--warna-kertas', t.paperColor || '#F7F3EA');
 
     // Lapisan latar layar buku: gradasi gelap (opasitas) + gambar opsional
     const lapis = [];
-    if (t.overlayOpacity) {
+    if (t.overlayOpacity && t.backgroundImage) {
       lapis.push(`linear-gradient(rgba(10, 9, 6, ${t.overlayOpacity}), rgba(10, 9, 6, ${t.overlayOpacity}))`);
     }
     if (t.backgroundImage) lapis.push(`url("${t.backgroundImage}")`);
@@ -198,11 +244,18 @@
     if (b.nama) {
       $('#nama-usaha-header').textContent = b.nama;
       $('#nama-usaha-book').textContent = b.nama;
-      document.title = b.nama + ' — menu digital yang dibalik seperti buku asli';
+      const judulHalaman = b.nama + ': ' + (b.tagline || 'buku menu digital profesional');
+      document.title = judulHalaman;
       const og = document.querySelector('meta[property="og:title"]');
-      if (og) og.setAttribute('content', b.nama + ' — menu digital interaktif');
+      if (og) og.setAttribute('content', judulHalaman);
+      const ogDesk = document.querySelector('meta[property="og:description"]');
+      if (ogDesk) ogDesk.setAttribute('content', (b.tagline || '') + ' ' + (b.kalimatPendukung || ''));
     }
     if (b.tagline) $('#tagline-usaha').textContent = b.tagline;
+    if (b.kalimatPendukung) {
+      const pendukung = $('#hero-pendukung');
+      if (pendukung) pendukung.textContent = b.kalimatPendukung;
+    }
 
     // Logo & favicon
     if (b.logo) {
@@ -280,16 +333,22 @@
     const pesan = $('#pesan-custom');
     if (state.ukuranPreset === 'custom' && !ukuranValid()) {
       const c = KONFIG.custom;
-      pesan.textContent = `Ukuran custom harus antara ${c.minLebar}–${c.maxLebar} mm (lebar) dan ${c.minTinggi}–${c.maxTinggi} mm (tinggi).`;
+      pesan.textContent = `Ukuran khusus harus berada di antara ${c.minLebar}–${c.maxLebar} mm (lebar) dan ${c.minTinggi}–${c.maxTinggi} mm (tinggi).`;
       pesan.hidden = false;
     } else {
       pesan.hidden = true;
     }
 
-    const r = u.w / u.h;
-    $('#info-rasio').textContent = `${formatID(u.w)} : ${formatID(u.h)}  (1 : ${formatID(r, 3)})`;
+    // Rasio ditulis lebar : tinggi (1 : 1,41 untuk A4), seperti yang lazim
+    // dicetak di daftar spesifikasi kertas.
+    const r = u.h / u.w;
+    $('#info-rasio').textContent = `${formatID(u.w)} : ${formatID(u.h)}  (1 : ${formatID(r, 2)})`;
     const rec = rekomendasiPx();
     $('#info-resolusi').textContent = `${rec.w} × ${rec.h} px`;
+    const namaJilid = state.jilid === 'spiral' ? 'Spiral kawat' : 'Jilid biasa';
+    $('#ringkasan-konfigurasi').textContent =
+      `${state.ukuranPreset === 'custom' ? 'Custom' : state.ukuranPreset} · ` +
+      `${state.orientasi === 'landscape' ? 'Landscape' : 'Portrait'} · ${namaJilid}`;
 
     // Rasio dipakai juga oleh thumbnail daftar halaman
     document.documentElement.style.setProperty('--rasio-halaman', `${u.w} / ${u.h}`);
@@ -344,10 +403,10 @@
   /** Validasi + proses satu file menjadi objek halaman. */
   async function prosesFile(file) {
     if (!TIPE_GAMBAR.includes(file.type)) {
-      throw new Error(`"${file.name}" bukan JPG, PNG, atau WebP.`);
+      throw new Error(`Berkas "${file.name}" bukan JPG, PNG, atau WebP.`);
     }
     if (file.size > KONFIG.book.maksFileMB * 1024 * 1024) {
-      throw new Error(`"${file.name}" lebih besar dari ${KONFIG.book.maksFileMB} MB.`);
+      throw new Error(`Berkas "${file.name}" lebih besar dari ${KONFIG.book.maksFileMB} MB.`);
     }
 
     let url = URL.createObjectURL(file);
@@ -356,7 +415,7 @@
       dim = await bacaDimensi(url);
     } catch (e) {
       URL.revokeObjectURL(url);
-      throw new Error(`"${file.name}" bukan gambar yang valid.`);
+      throw new Error(`Berkas "${file.name}" bukan gambar yang valid.`);
     }
 
     // Kompresi otomatis agar loading cepat (hanya bila file besar)
@@ -384,11 +443,11 @@
 
     const sisa = KONFIG.book.maksHalaman - state.pages.length;
     if (sisa <= 0) {
-      toast(`Jumlah halaman sudah maksimal (${KONFIG.book.maksHalaman}).`, 'galat');
+      toast(`Jumlah halaman sudah mencapai batas maksimal (${KONFIG.book.maksHalaman} halaman).`, 'galat');
       return;
     }
     if (files.length > sisa) {
-      toast(`Hanya ${sisa} file pertama yang dimasukkan (batas ${KONFIG.book.maksHalaman} halaman).`, 'galat');
+      toast(`Hanya ${sisa} berkas pertama yang dimasukkan (batas ${KONFIG.book.maksHalaman} halaman).`, 'galat');
     }
 
     setDropzoneSibuk(true);
@@ -396,7 +455,7 @@
       try {
         state.pages.push(await prosesFile(file));
       } catch (err) {
-        toast(err.message || 'Gagal memproses file.', 'galat');
+        toast(err.message || 'Berkas gagal diproses.', 'galat');
       }
     }
     setDropzoneSibuk(false);
@@ -435,8 +494,8 @@
     const banner = $('#banner-rasio');
     if (salah > 0) {
       $('#banner-rasio-teks').textContent =
-        `${salah} gambar tidak sesuai rasio buku ${u.label} (${u.w} × ${u.h} mm). ` +
-        'Pilih cara penyesuaian otomatis agar halaman tetap rapi:';
+        `${salah} gambar rasionya tidak sesuai ukuran halaman ${u.label} (${u.w} × ${u.h} mm). ` +
+        'Pilih cara penyesuaian agar halaman tetap rapi.';
       banner.hidden = false;
     } else {
       banner.hidden = true;
@@ -477,23 +536,26 @@
       li.appendChild(thumb);
       li.appendChild(elemen('p', 'item-halaman__nama', p.nama));
 
-      /* --- tombol aksi --- */
+      /* --- tombol aksi (ikon, agar ringkas di HP) --- */
       const aksi = elemen('div', 'item-halaman__aksi');
-      const bAtas = elemen('button', '', '↑');
+      const bAtas = elemen('button');
       bAtas.type = 'button'; bAtas.title = 'Naikkan urutan';
       bAtas.setAttribute('aria-label', `Naikkan halaman ${i + 1}`);
+      bAtas.appendChild(buatIkon('panah-atas'));
       bAtas.disabled = i === 0;
       bAtas.addEventListener('click', () => geserHalaman(p.id, -1));
 
-      const bBawah = elemen('button', '', '↓');
+      const bBawah = elemen('button');
       bBawah.type = 'button'; bBawah.title = 'Turunkan urutan';
       bBawah.setAttribute('aria-label', `Turunkan halaman ${i + 1}`);
+      bBawah.appendChild(buatIkon('panah-bawah'));
       bBawah.disabled = i === total - 1;
       bBawah.addEventListener('click', () => geserHalaman(p.id, 1));
 
-      const bHapus = elemen('button', 'hapus', '✕');
+      const bHapus = elemen('button', 'hapus');
       bHapus.type = 'button'; bHapus.title = 'Hapus halaman';
       bHapus.setAttribute('aria-label', `Hapus halaman ${i + 1}`);
+      bHapus.appendChild(buatIkon('hapus'));
       bHapus.addEventListener('click', () => hapusHalaman(p.id));
 
       aksi.append(bAtas, bBawah, bHapus);
@@ -557,32 +619,69 @@
     perbaruiInfoAksi();
   }
 
-  /** Ringkasan jumlah halaman + status tombol "Buka Buku Menu". */
+  /** Ringkasan jumlah halaman + status tombol "Buka buku menu". */
   function perbaruiInfoAksi() {
     const n = state.pages.length;
     const genap = n % 2 === 0;
     const info = $('#aksi-bawah-info');
     $('#info-halaman').textContent = n === 0 ? 'Belum ada halaman.' : `${n} halaman`;
     if (n === 0) {
-      info.textContent = 'Belum ada halaman — unggah gambar atau muat menu contoh.';
+      info.textContent = 'Belum ada halaman. Unggah gambar menu atau muat menu contoh.';
     } else {
       let teks = `${n} halaman siap dibuka`;
-      if (!genap) teks += ` · jumlah ganjil: 1 halaman kosong otomatis ditambahkan sebelum sampul belakang`;
+      if (!genap) teks += ' · jumlah halaman ganjil: satu halaman kosong ditambahkan otomatis sebelum sampul belakang';
       info.textContent = teks + '.';
     }
     $('#btn-lihat').disabled = n === 0 || (state.ukuranPreset === 'custom' && !ukuranValid());
+
+    // Keadaan kosong pada daftar pratinjau
+    const kosong = $('#daftar-kosong');
+    if (kosong) kosong.hidden = n > 0;
+
+    perbaruiAlur();
   }
 
-  /** Muat halaman contoh dari config (agar template langsung bisa dicoba). */
-  async function muatContoh() {
-    if (state.pages.length &&
-        !window.confirm('Ganti halaman saat ini dengan menu contoh?')) return;
+  /**
+   * Indikator tahap penyusunan (01 ukuran → 02 unggah → 03 buka buku):
+   * langkah yang sudah tuntas diberi tanda centang, langkah berikutnya aktif.
+   */
+  function perbaruiAlur() {
+    const langkah = document.querySelectorAll('#alur-alat .alur__langkah');
+    if (!langkah.length) return;
+    const selesai = [ukuranValid(), state.pages.length > 0, state.pernahBuka];
+    let aktifIdx = selesai.findIndex((s) => !s);
+    if (aktifIdx < 0) aktifIdx = 2;
+
+    langkah.forEach((li, i) => {
+      li.classList.toggle('is-selesai', selesai[i]);
+      li.classList.toggle('is-aktif', !selesai[i] && i === aktifIdx);
+    });
+
+    const k1 = document.querySelector('[data-kartu="1"] .kartu__nomor');
+    const k2 = document.querySelector('[data-kartu="2"] .kartu__nomor');
+    if (k1) k1.classList.toggle('is-selesai', selesai[0]);
+    if (k2) k2.classList.toggle('is-selesai', selesai[1]);
+  }
+
+  /**
+   * Muat halaman contoh dari config (agar template langsung bisa dicoba).
+   * @param {boolean} lewatiKonfirmasi  true bila halaman lama diganti tanpa tanya
+   * @param {string} menuId             id menu dari KONFIG.sample.menus
+   * @param {boolean} diam              true bila tidak perlu menampilkan toast
+   */
+  async function muatContoh(lewatiKonfirmasi = false, menuId = '', diam = false, sumberOverride = null) {
+    const menu = (KONFIG.sample.menus || []).find((m) => m.id === menuId);
+    const sumber = sumberOverride || (menu ? menu.pages : KONFIG.sample.pages);
+    if (!sumber || !sumber.length) return false;
+
+    if (!lewatiKonfirmasi && state.pages.length &&
+        !window.confirm('Halaman yang ada akan diganti dengan menu contoh. Lanjutkan?')) return false;
 
     const tombol = $('#btn-contoh');
-    tombol.disabled = true;
+    if (tombol) tombol.disabled = true;
     try {
       const baru = [];
-      for (const s of KONFIG.sample.pages) {
+      for (const s of sumber) {
         const dim = await bacaDimensi(s.src); // SVG berukuran tetap juga terbaca
         baru.push({
           id: state.idSeq++,
@@ -595,13 +694,29 @@
       periksaRasio();
       renderDaftar();
       perbaruiInfoAksi();
-      toast('Menu contoh dimuat. Silakan tekan "Buka Buku Menu".');
+      if (!diam) {
+        toast(menu
+          ? `Menu contoh "${menu.nama}" dimuat. Tekan "Buka buku menu" untuk melihat hasilnya.`
+          : 'Menu contoh dimuat. Tekan "Buka buku menu" untuk melihat hasilnya.');
+      }
+      return true;
     } catch (e) {
       console.error(e);
-      toast('Gagal memuat menu contoh.', 'galat');
+      if (!diam) toast('Menu contoh gagal dimuat. Periksa koneksi internet, lalu coba lagi.', 'galat');
+      return false;
     } finally {
-      tombol.disabled = false;
+      if (tombol) tombol.disabled = false;
     }
+  }
+
+  /** Muat salah satu menu siap pakai, lalu langsung buka buku menunya. */
+  async function bukaMenuContoh(menuId) {
+    const berhasil = await muatContoh(true, menuId, true);
+    if (!berhasil) {
+      toast('Menu contoh gagal dimuat. Periksa koneksi internet, lalu coba lagi.', 'galat');
+      return;
+    }
+    await bukaLayarBuku();
   }
 
   /* =========================================================================
@@ -716,36 +831,29 @@
     const lebarTersedia = Math.max(160, rect.width - padX - ruang);
     const tinggiTersedia = Math.max(160, rect.height - padY - ruang);
 
-    // Buku tampil 1 halaman (portrait) bila lebar container < 2×minWidthPx
-    let portrait = rect.width < 2 * KONFIG.book.minWidthPx;
-    let maksLebar = portrait
-      ? Math.min(lebarTersedia, tinggiTersedia / rasioTinggi)
-      : Math.min(lebarTersedia, 2 * tinggiTersedia / rasioTinggi);
-
-    // Bila ruang tinggi membuat spread terlalu kecil, jatuhkan ke mode 1 halaman
-    // agar keputusan tetap sama dengan yang diambil library.
-    if (!portrait && maksLebar / 2 < KONFIG.book.minWidthPx) {
-      portrait = true;
-      maksLebar = Math.min(lebarTersedia, tinggiTersedia / rasioTinggi);
-    }
-
+    // Buku selalu dirender sebagai spread. Pada layar sempit, StPageFlip tetap
+    // memakai lebar minimum per halaman lalu spread diperkecil secara visual
+    // agar dua halaman tetap utuh dan terpusat.
+    const maksLebarSpread = Math.min(
+      lebarTersedia,
+      (2 * tinggiTersedia) / rasioTinggi
+    );
     const px = pxHalaman();
-    const maksBuku = portrait ? px.w : px.w * 2;   // spread = 2 halaman
-    const hostAkhir = Math.floor(Math.min(maksLebar, maksBuku));
-    host.style.maxWidth = hostAkhir + 'px';
+    const lebarMinimumSpread = 2 * KONFIG.book.minWidthPx;
+    const hostAkhir = Math.floor(Math.min(maksLebarSpread, px.w * 2));
+    const lebarRender = Math.max(hostAkhir, lebarMinimumSpread);
+    host.style.width = lebarRender + 'px';
+    host.style.maxWidth = lebarRender + 'px';
 
-    // Library tidak pernah merender 1 halaman lebih sempit dari minWidthPx,
-    // sehingga di layar sangat pendek (HP landscape) buku bisa melebihi ruang
-    // tinggi. Solusinya: buku dirender pada ukuran minimum library, lalu
-    // diperkecil secara visual dengan faktor "fit" (transform scale) agar
-    // seluruh halaman tetap terlihat — zoom tetap dihitung dari ukuran ini.
-    state.zoom.fit = 1;
-    if (portrait && hostAkhir < KONFIG.book.minWidthPx) {
-      const tinggiBuku = KONFIG.book.minWidthPx * rasioTinggi;
-      if (tinggiBuku > tinggiTersedia) {
-        state.zoom.fit = batas(tinggiTersedia / tinggiBuku, 0.35, 1);
-      }
-    }
+    // Jika ukuran minimum spread lebih besar dari ruang aman panggung, buku
+    // diperkecil dengan transform. Ukuran geometrinya tetap ukuran asli agar
+    // zoom dan batas pan mengikuti buku yang sebenarnya.
+    const tinggiRender = (lebarRender / 2) * rasioTinggi;
+    state.zoom.fit = Math.min(
+      1,
+      lebarTersedia / lebarRender,
+      tinggiTersedia / tinggiRender
+    );
     terapkanTransform();
 
     perbaruiPanggungBuku();
@@ -758,6 +866,7 @@
   function perbaruiPanggungBuku() {
     const stage = $('#book-stage');
     if (!stage || $('#screen-book').hidden) return;
+    if (animasiFlipAktif || Date.now() < akhirFlip) return;
     if (stage.dataset.jilid !== state.jilid) stage.dataset.jilid = state.jilid;
 
     const wrap = stage.querySelector('.stf__wrapper');
@@ -770,12 +879,26 @@
     stage.style.setProperty('--buku-w', kotak.width.toFixed(1) + 'px');
     stage.style.setProperty('--buku-h', kotak.height.toFixed(1) + 'px');
 
-    // Spread (2 halaman) saat library memakai orientasi landscape
-    const spread = !!(wrap && wrap.classList.contains('--landscape'));
+    // Sampul awal/akhir tetap satu halaman walaupun wrapper memakai kelas
+    // landscape. Hanya dua halaman yang sedang terlihat yang memakai spread.
+    const halamanTerlihat = [...stage.querySelectorAll('.stf__item')].filter((halaman) => {
+      const rect = halaman.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && getComputedStyle(halaman).visibility !== 'hidden';
+    });
+    const landscape = !!(wrap && wrap.classList && wrap.classList.contains('--landscape'));
+    const indeksHalaman = state.pageFlip && state.pageFlip.getCurrentPageIndex();
+    const jumlahHalaman = state.daftarBuku ? state.daftarBuku.length : 0;
+    const spread = landscape && (
+      halamanTerlihat.length > 1 ||
+      (Number.isInteger(indeksHalaman) && indeksHalaman > 0 && indeksHalaman < jumlahHalaman - 1)
+    );
+    const halamanTunggal = !spread && halamanTerlihat[0];
+    const sisiPunggung = halamanTunggal && halamanTunggal.classList &&
+      halamanTunggal.classList.contains('--left') ? 'kanan' : 'kiri';
     stage.classList.toggle('is-spread', spread);
 
     // Gambar ulang isi jilid (kawat spiral) sesuai ukuran buku terbaru
-    bangunJilid(kotak, panggung, spread);
+    bangunJilid(halamanTunggal ? halamanTunggal.getBoundingClientRect() : kotak, panggung, spread, sisiPunggung);
   }
 
   /**
@@ -794,7 +917,7 @@
    * @param {DOMRect} panggung rect #book-stage (acuan koordinat strip)
    * @param {boolean} spread   true bila buku tampil 2 halaman
    */
-  function bangunJilid(kotak, panggung, spread) {
+  function bangunJilid(kotak, panggung, spread, sisiPunggung = 'kiri') {
     const el = $('#jilid-buku');
     if (!el) return;
 
@@ -803,16 +926,20 @@
     if (!kotak.width || !kotak.height) return;
 
     const TEPI = 38;                             // garis tepi kertas di dalam strip (px)
-    const tinggi = kotak.height;
-    el.classList.toggle('jilid--spread', !!spread);
+    // Wrapper selalu mewakili ukuran satu buku penuh, baik sampul tunggal
+    // maupun spread. Pakai sebagai acuan vertikal agar kawat tidak bergeser
+    // akibat tinggi halaman aktif yang berubah pecahan piksel saat flip.
+    const wrapper = el.parentElement?.querySelector('.stf__wrapper');
+    const acuanVertikal = wrapper ? wrapper.getBoundingClientRect() : kotak;
+    const tinggi = acuanVertikal.height;
 
     // Posisi strip dihitung dari ukuran buku yang baru diukur (bukan variabel
     // CSS yang bisa sedikit basi sebelum font/layout mantap) agar kawat benar-
     // benar menempel di tepi punggung: 1 halaman -> tepi KIRI kertas, spread ->
     // tengah lipatan.
-    const acuanX = spread ? kotak.width / 2 : 0;
+    const acuanX = spread ? kotak.width / 2 : (sisiPunggung === 'kanan' ? kotak.width : 0);
     el.style.left = (kotak.left - panggung.left + acuanX - TEPI).toFixed(1) + 'px';
-    el.style.top = (kotak.top - panggung.top).toFixed(1) + 'px';
+    el.style.top = (acuanVertikal.top - panggung.top).toFixed(1) + 'px';
     el.style.height = tinggi.toFixed(1) + 'px';
 
     // Jarak antar lilitan: renggang & teratur seperti jilid kawat sungguhan
@@ -827,7 +954,8 @@
     // Celah tengah saat spread: buku spiral TIDAK punya lipatan di tengah —
     // kedua tumpukan halaman dipisahkan celah sempit tempat kawat berjalan.
     // Lebarnya mengikuti ukuran buku dan dipakai CSS lewat --jilid-celah.
-    const celah = Math.max(5, Math.min(9, kotak.width * 0.009));
+    const lebarWrapper = wrapper ? wrapper.getBoundingClientRect().width : kotak.width;
+    const celah = Math.max(5, Math.min(9, lebarWrapper * 0.009));
     if (el.parentElement) {
       el.parentElement.style.setProperty('--jilid-celah', celah.toFixed(1) + 'px');
     }
@@ -837,13 +965,6 @@
     // - spread    : tidak dibuat di sini — saat buku terbuka, tebal tumpukan
     //   ditempel pada tiap HALAMAN (lihat CSS .page.--left/--right) supaya
     //   hiasannya hanya muncul di sisi yang memang ada halamannya.
-    if (!spread) {
-      const tepi = elemen('div');
-      tepi.className = 'jilid__tepi';
-      tepi.style.left = (TEPI - 4) + 'px';
-      potongan.appendChild(tepi);
-    }
-
     // Lubang tusuk: satu kolom bergaris-ulang (hemat elemen) berisi elips gelap
     // + pantulan cahaya di dinding bawahnya (tebal kertas). Titik tengah lubang
     // dibuat pas di tengah tiap lilitan (pakai calc, jadi tetap presisi berapa
@@ -864,21 +985,15 @@
       d.style.backgroundPosition = `0 ${(pusatY(0) - jarak / 2).toFixed(1)}px`;
       potongan.appendChild(d);
     };
-    if (spread) {
-      // Spread: kertas tertekuk di tengah -> lubang rapat di kedua sisi lipatan
-      barisLubang(TEPI - 9);
-      barisLubang(TEPI + 9);
-    } else {
-      // 1 halaman: lubang sekitar 3,5 px di dalam tepi kertas (di dalam cincin)
-      barisLubang(TEPI + 3.5);
-    }
+    // Pasangan lubang berjarak tetap di sampul depan, halaman tengah, dan
+    // sampul belakang agar kawat melewati pola yang sama di sepanjang buku.
+    barisLubang(TEPI - 9);
+    barisLubang(TEPI + 9);
 
-    // Lilitan kawat: cincin logam tipis yang benar-benar melewati tepi kertas
-    // (sebagian di luar kertas, sebagian menembus lubang di dalam kertas).
-    // Spread: lebih lebar karena melintang di lipatan, menembus lubang di
-    // kedua sisi lipatan.
-    const lebar = spread ? 20 : 10;
-    const tinggiLoop = spread ? 12 : 7;
+    // Pakai bentuk kawat yang sama pada sampul dan spread agar flip pertama
+    // maupun terakhir tidak mengubah dimensi lilitan.
+    const lebar = 20;
+    const tinggiLoop = 12;
     const kiriLoop = TEPI;                       // pusat cincin tepat di tepi kertas
     for (let i = 0; i < jml; i++) {
       const loop = elemen('div');
@@ -921,17 +1036,18 @@
     $('#flip-host').appendChild(host);
 
     fitStage();
+    $('#book-stage').style.setProperty('--durasi-flip', `${KONFIG.book.flippingTime}ms`);
 
     const px = pxHalaman();
     const pengaturan = {
       width: px.w, height: px.h,
       size: 'stretch',                 // mengikuti lebar container, rasio tetap
-      minWidth: KONFIG.book.minWidthPx, // < 2×nilai ini -> mode 1 halaman (HP)
+      minWidth: KONFIG.book.minWidthPx, // minimum lebar setiap halaman (HP)
       maxWidth: px.w,                   // batas lebar 1 halaman
       minHeight: 220,
       maxHeight: Math.round(px.h * 1.2),
       autoSize: true,
-      usePortrait: true,                // boleh turun ke mode 1 halaman
+      usePortrait: false,               // selalu spread; sampul tetap sendiri
       showCover: true,                  // sampul depan/belakang tampil sendiri
       drawShadow: true,
       maxShadowOpacity: 1,
@@ -964,6 +1080,22 @@
       state.halamanAktif = typeof e.data === 'number' ? e.data : pageFlip.getCurrentPageIndex();
       perbaruiIndikator();
       if (state.soundOn) putarSuara();
+      // Event flip mengonfirmasi indeks baru; ukur ulang setelah animasi agar
+      // sampul depan/belakang dan spread memakai geometri halaman tujuan.
+      jadwalkanPerbaruiJilid();
+    });
+    pageFlip.on('changeState', (e) => {
+      // Ukuran/posisi lembar berubah setiap frame selama flip. Jangan ukur
+      // ulang overlay spiral dari geometri sementara itu.
+      if (e.data !== 'read') {
+        animasiFlipAktif = true;
+        akhirFlip = Date.now() + KONFIG.book.flippingTime;
+        if (timerJilid) { clearTimeout(timerJilid); timerJilid = null; }
+        return;
+      }
+
+      // Tunggu layout halaman benar-benar menetap sebelum mengukur jilid.
+      jadwalkanPerbaruiJilid();
     });
     pageFlip.on('changeOrientation', () => {
       fitStage();
@@ -982,7 +1114,9 @@
       const wrapBuku = document.querySelector('#book-stage .stf__wrapper');
       if (wrapBuku) {
         pengamatBuku = new ResizeObserver(() => {
-          if (pengamatBuku) requestAnimationFrame(perbaruiPanggungBuku);
+          // Ukuran wrapper dapat varier selama flip; debounce perubahan agar
+          // kawat tidak mengikuti setiap ukuran perantara halaman.
+          if (pengamatBuku && !animasiFlipAktif) jadwalkanPerbaruiJilid();
         });
         pengamatBuku.observe(wrapBuku);
       }
@@ -990,6 +1124,32 @@
   }
 
   let pengamatBuku = null;   // ResizeObserver kotak buku (bayangan/spine/jilid)
+  let timerJilid = null;     // penjadwal gambar ulang jilid setelah animasi
+  let animasiFlipAktif = false;
+  let akhirFlip = 0;
+
+  /**
+   * Gambar ulang overlay jilid setelah animasi balik halaman selesai.
+   * Tanpa ini, kawat tetap memakai bentuk buku tertutup walau buku sudah
+   * terbuka (lubang hanya satu sisi, tanpa celah tengah).
+   */
+  function jadwalkanPerbaruiJilid() {
+    if (timerJilid) clearTimeout(timerJilid);
+    timerJilid = setTimeout(() => {
+      timerJilid = null;
+      if ($('#screen-book').hidden) return;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if ($('#screen-book').hidden) return;
+        if (Date.now() < akhirFlip) {
+          jadwalkanPerbaruiJilid();
+          return;
+        }
+        animasiFlipAktif = false;
+        akhirFlip = 0;
+        perbaruiPanggungBuku();
+      }));
+    }, Math.max(120, KONFIG.book.flippingTime + 100));
+  }
 
   function hancurkanBuku() {
     if (pengamatBuku) { pengamatBuku.disconnect(); pengamatBuku = null; }
@@ -1008,9 +1168,15 @@
    * event resize, sehingga bayangan, lipatan tengah, dan jilid bisa meleset.
    */
   function ukurUlangBertahap() {
-    [0, 150, 400, 900, 1600].forEach((t) => {
+    // Beberapa kali pengukuran: font & gambar menyusul setelahnya, sehingga
+    // ukuran buku, bilah alat, dan geometri jilid ikut menyesuaikan.
+    [0, 60, 150, 400, 900, 1600].forEach((t) => {
       setTimeout(() => {
-        if (!$('#screen-book').hidden) perbaruiPanggungBuku();
+        if ($('#screen-book').hidden) return;
+        if (animasiFlipAktif || Date.now() < akhirFlip) return;
+        ukurKendali();
+        fitStage();
+        perbaruiPanggungBuku();
       }, t);
     });
   }
@@ -1037,7 +1203,7 @@
       const th = elemen('div', 'drawer-item__thumb');
       if (p.blank) {
         th.classList.add('drawer-item__kosong');
-        th.textContent = '—';
+        th.textContent = 'Kosong';
       } else {
         const img = elemen('img');
         img.src = p.url;
@@ -1072,6 +1238,7 @@
   function bukaDrawer() {
     $('#drawer-buku').classList.add('is-terbuka');
     $('#drawer-overlay').classList.add('is-terbuka');
+    document.body.classList.add('is-scroll-terkunci');
     $('#drawer-buku').setAttribute('aria-hidden', 'false');
     $('#btn-drawer').setAttribute('aria-expanded', 'true');
     KendaliBuku.tampilkan();   // toolbar tidak disembunyikan selama laci terbuka
@@ -1082,6 +1249,7 @@
   function tutupDrawer() {
     $('#drawer-buku').classList.remove('is-terbuka');
     $('#drawer-overlay').classList.remove('is-terbuka');
+    document.body.classList.remove('is-scroll-terkunci');
     $('#drawer-buku').setAttribute('aria-hidden', 'true');
     $('#btn-drawer').setAttribute('aria-expanded', 'false');
   }
@@ -1549,31 +1717,39 @@
     src.start();
   }
 
-  /* =========================================================================
-   * 10. LAYAR PENUH
-   * ====================================================================== */
-  function inisialisasiFullscreen() {
-    const layar = $('#screen-book');
-    const didukung = !!(
-      layar.requestFullscreen || layar.webkitRequestFullscreen ||
-      (document.fullscreenEnabled !== false && document.documentElement.requestFullscreen)
-    );
-    // iPhone Safari tidak mendukung fullscreen elemen -> sembunyikan tombol
-    if (!didukung) $('#btn-fullscreen').hidden = true;
+  let pengamatPanggung = null;       // ResizeObserver panggung buku
+  let idPantauPanggung = 0;          // id rAF untuk pantauPanggung()
+  let kendaliTerakhir = -1;          // tinggi bilah kendali yang terakhir diukur
+  let ukuranPanggungTerakhir = '';   // kunci ukuran panggung (deteksi perubahan)
+
+  /**
+   * Ukur tinggi bilah kendali melayang, lalu pakai sebagai ruang bawah
+   * panggung buku. Tujuannya: buku tidak pernah tertutup bilah alat, berapa
+   * pun jumlah baris tombolnya (HP sempit bisa membungkus ke dua baris).
+   */
+  function ukurKendali() {
+    const k = $('#book-kendali');
+    if (!k || $('#screen-book').hidden) return;
+    const tinggi = Math.ceil(k.getBoundingClientRect().height);
+    if (!tinggi || Math.abs(tinggi - kendaliTerakhir) < 2) return;
+    kendaliTerakhir = tinggi;
+    const ruang = batas(tinggi + 10, 78, 220);   // nilai wajar utk semua layar
+    document.documentElement.style.setProperty('--kendali-ruang', ruang + 'px');
   }
 
-  function toggleFullscreen() {
-    const layar = $('#screen-book');
-    const aktif = document.fullscreenElement || document.webkitFullscreenElement;
-    try {
-      if (!aktif) {
-        (layar.requestFullscreen || layar.webkitRequestFullscreen).call(layar);
-      } else {
-        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      }
-    } catch (e) {
-      toast('Mode layar penuh tidak didukung peramban ini.', 'galat');
-    }
+  /** Pantau ukuran panggung buku (font/gambar/bilah peramban menyusul). */
+  function pantauPanggung() {
+    if (idPantauPanggung) return;      // sudah dijadwalkan
+    idPantauPanggung = requestAnimationFrame(() => {
+      idPantauPanggung = 0;
+      if ($('#screen-book').hidden) return;
+      const r = $('#book-stage').getBoundingClientRect();
+      const kunci = Math.round(r.width) + '×' + Math.round(r.height);
+      if (kunci === ukuranPanggungTerakhir) return;   // tidak ada perubahan nyata
+      ukuranPanggungTerakhir = kunci;
+      ukurKendali();
+      fitStage();
+    });
   }
 
   /* =========================================================================
@@ -1582,33 +1758,59 @@
   /** id timer "balik halaman karena ketuk cepat" (dibatalkan bila layar pindah). */
   let idBalikTunda = 0;
 
-  function tampilkanLayar(nama) {
+  async function tampilkanLayar(nama) {
     const diBuku = nama === 'book';
+
+    pindahkanToast(diBuku);
     $('#screen-setup').hidden = diBuku;
     $('#screen-book').hidden = !diBuku;
-
     if (!diBuku) {
       clearTimeout(idBalikTunda); // jangan balik halaman setelah kembali
       tutupDrawer();
       hancurkanBuku();           // bebaskan memori & GPU saat kembali ke pengaturan
+      if (state.halamanSebelumContoh !== null) {
+        state.pages = state.halamanSebelumContoh;
+        state.halamanSebelumContoh = null;
+        periksaRasio();
+        renderDaftar();
+        perbaruiInfoAksi();
+        toast('Halaman Anda dipulihkan setelah melihat contoh.');
+      }
+      if (state.gayaSebelumContoh) {
+        state.orientasi = state.gayaSebelumContoh.orientasi;
+        state.jilid = state.gayaSebelumContoh.jilid;
+        state.gayaSebelumContoh = null;
+        state.gayaPreview = null;
+        sinkronSegmen();
+        perbaruiInfoUkuran();
+      }
       resetZoom();
+      perbaruiAlur();            // tandai tahap yang sudah tuntas
     } else {
       KendaliBuku.tampilkan();   // tampilkan toolbar saat masuk layar buku
+      ukurKendali();             // ruang bawah panggung disesuaikan bilah alat
     }
     window.scrollTo(0, 0);
   }
 
+  /** Pindahkan elemen notifikasi (#toast) ke layar yang sedang tampil. */
+  function pindahkanToast(diBuku) {
+    const t = $('#toast');
+    const induk = diBuku ? $('#screen-book') : document.body;
+    if (t && induk && t.parentElement !== induk) induk.appendChild(t);
+  }
+
   async function bukaLayarBuku() {
     if (!state.pages.length) {
-      toast('Unggah minimal satu gambar menu dulu.', 'galat');
+      toast('Unggah minimal satu gambar menu sebelum membuka buku.', 'galat');
       return;
     }
     if (state.ukuranPreset === 'custom' && !ukuranValid()) {
-      toast('Periksa kembali ukuran custom pada bagian ukuran buku.', 'galat');
+      toast('Periksa kembali ukuran khusus pada kartu "Ukuran halaman".', 'galat');
       return;
     }
     if (typeof window.St === 'undefined' || !window.St.PageFlip) {
-      toast('Library flipbook gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman.', 'galat');
+      toast('Pustaka buku digital gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman.', 'galat');
       return;
     }
 
@@ -1618,11 +1820,12 @@
       await bangunBuku();
     } catch (e) {
       console.error(e);
-      toast('Gagal menyiapkan buku menu.', 'galat');
+      toast('Buku menu gagal disiapkan. Silakan coba lagi.', 'galat');
       tampilkanLayar('setup');
       return;
     }
     setBukuLoading(false);
+    state.pernahBuka = true;                     // tahap 03 (buka buku) tuntas
     requestAnimationFrame(perbaruiPanggungBuku); // final setelah layout selesai
     ukurUlangBertahap();                         // font & gambar menyusul
     KendaliBuku.tampilkan();
@@ -1632,7 +1835,7 @@
    * 12. PEMASANGAN EVENT
    * ====================================================================== */
 
-  /** Sinkronkan tampilan tombol segmented (bentuk halaman & jenis jilid). */
+  /** Sinkronkan kontrol orientasi dan jilid pada kartu Ukuran halaman. */
   function sinkronSegmen() {
     document.querySelectorAll('.segmen[data-orientasi]').forEach((b) => {
       const aktif = b.dataset.orientasi === state.orientasi;
@@ -1647,12 +1850,46 @@
   }
 
   function pasangEvent() {
+    pasangKendaliTerbit();
+    /* ---- navigasi mobile ---- */
+    const dialogMenu = $('#dialog-menu-mobile');
+    const tombolMenu = $('#btn-menu-mobile');
+    const tutupMenu = () => {
+      if (!dialogMenu) return;
+      if (dialogMenu.open) dialogMenu.close();
+      if (tombolMenu) tombolMenu.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('is-scroll-terkunci');
+    };
+    if (dialogMenu && tombolMenu) {
+      tombolMenu.addEventListener('click', () => {
+        dialogMenu.showModal();
+        tombolMenu.setAttribute('aria-expanded', 'true');
+        document.body.classList.add('is-scroll-terkunci');
+        const tutup = $('#btn-menu-mobile-tutup');
+        if (tutup) tutup.focus();
+      });
+      const tutup = $('#btn-menu-mobile-tutup');
+      if (tutup) tutup.addEventListener('click', tutupMenu);
+      dialogMenu.addEventListener('click', (e) => {
+        if (e.target === dialogMenu) tutupMenu();
+      });
+      dialogMenu.addEventListener('close', () => {
+        tombolMenu.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('is-scroll-terkunci');
+      });
+      dialogMenu.querySelectorAll('a').forEach((tautan) => tautan.addEventListener('click', tutupMenu));
+    }
     /* ---- ukuran buku ---- */
     const sel = $('#sel-ukuran');
-    sel.value = KONFIG.book.ukuranAwal;
-    state.ukuranPreset = sel.value;
+    sel.value = state.ukuranPreset;
+    if (sel.value !== state.ukuranPreset) {
+      state.ukuranPreset = KONFIG.book.ukuranAwal;
+      sel.value = state.ukuranPreset;
+    }
+
     sel.addEventListener('change', () => {
       state.ukuranPreset = sel.value;
+      simpanPreferensi();
       perbaruiInfoUkuran();
     });
 
@@ -1663,6 +1900,7 @@
     const bacaCustom = () => {
       state.ukuranCustom.w = parseFloat(inL.value);
       state.ukuranCustom.h = parseFloat(inT.value);
+      simpanPreferensi();
       perbaruiInfoUkuran();
     };
     inL.addEventListener('input', bacaCustom);
@@ -1699,16 +1937,16 @@
     $('#btn-rasio-crop').addEventListener('click', () => {
       state.pilihFit = 'cover';
       periksaRasio(); renderDaftar();
-      toast('Gambar bermasalah ditampilkan "isi penuh" (terpotong sedikit).');
+      toast('Gambar ditampilkan "isi penuh": tepinya terpotong sedikit.');
     });
     $('#btn-rasio-fit').addEventListener('click', () => {
       state.pilihFit = 'contain';
       periksaRasio(); renderDaftar();
-      toast('Gambar bermasalah ditampilkan "muat penuh" (ada tepi putih tipis).');
+      toast('Gambar ditampilkan "muat penuh": ada tepi kosong di sekelilingnya.');
     });
 
     /* ---- aksi utama ---- */
-    $('#btn-contoh').addEventListener('click', muatContoh);
+    $('#btn-contoh').addEventListener('click', () => muatContoh());
     $('#btn-lihat').addEventListener('click', bukaLayarBuku);
     $('#btn-kembali').addEventListener('click', () => tampilkanLayar('setup'));
 
@@ -1718,21 +1956,73 @@
       if (state.pages.length) bukaLayarBuku();
     });
 
-    /* ---- pilihan template: bentuk halaman & jenis jilid ---- */
+    /* ---- kartu menu siap pakai di landing: buka buku menu itu langsung ---- */
+    document.querySelectorAll('[data-menu-contoh]').forEach((b) =>
+      b.addEventListener('click', () => bukaMenuContoh(b.dataset.menuContoh)));
+
+    /* ---- pilihan bentuk halaman dan jenis jilid ---- */
     sinkronSegmen();
     document.querySelectorAll('.segmen[data-orientasi]').forEach((b) =>
       b.addEventListener('click', () => {
         state.orientasi = b.dataset.orientasi === 'landscape' ? 'landscape' : 'portrait';
+        simpanPreferensi();
         sinkronSegmen();
-        perbaruiInfoUkuran();   // rasio, resolusi, thumbnail, banner ikut berubah
+        perbaruiInfoUkuran();
       }));
     document.querySelectorAll('.segmen[data-jilid]').forEach((b) =>
       b.addEventListener('click', () => {
-        // Hanya 'spiral' yang memakai kawat; sisanya punggung polos ('biasa')
         state.jilid = b.dataset.jilid === 'spiral' ? 'spiral' : 'biasa';
+        simpanPreferensi();
         sinkronSegmen();
-        // Bila buku sedang terbuka, ganti jilidnya sekarang juga
         if (state.pageFlip) perbaruiPanggungBuku();
+      }));
+
+    /* ---- contoh mandiri: hanya ikon mata yang membuka flipbook ---- */
+    async function bukaContohGaya(kunci) {
+        const konfigurasi = {
+          'portrait-biasa': { orientasi: 'portrait', jilid: 'biasa' },
+          'portrait-spiral': { orientasi: 'portrait', jilid: 'spiral' },
+          'landscape-biasa': { orientasi: 'landscape', jilid: 'biasa' },
+          'landscape-spiral': { orientasi: 'landscape', jilid: 'spiral' }
+        }[kunci];
+        if (!konfigurasi) return;
+        if (!state.gayaSebelumContoh) {
+          state.gayaSebelumContoh = { orientasi: state.orientasi, jilid: state.jilid };
+        }
+        state.gayaPreview = konfigurasi;
+        state.orientasi = konfigurasi.orientasi;
+        state.jilid = konfigurasi.jilid;
+        sinkronSegmen();
+        perbaruiInfoUkuran();
+      if (state.halamanSebelumContoh === null) {
+        state.halamanSebelumContoh = state.pages;
+        state.pages = [];
+      }
+      const halamanContoh = konfigurasi.orientasi === 'landscape'
+        ? KONFIG.sample.landscapePages
+        : KONFIG.sample.portraitPages;
+      const berhasil = await muatContoh(true, '', true, halamanContoh);
+      toast('Contoh ditampilkan sementara. Halaman Anda tidak diubah.');
+      if (berhasil) await bukaLayarBuku();
+      else if (state.halamanSebelumContoh !== null) {
+        state.pages = state.halamanSebelumContoh;
+        state.halamanSebelumContoh = null;
+        renderDaftar();
+        perbaruiInfoAksi();
+        if (state.gayaSebelumContoh) {
+          state.orientasi = state.gayaSebelumContoh.orientasi;
+          state.jilid = state.gayaSebelumContoh.jilid;
+          state.gayaSebelumContoh = null;
+          sinkronSegmen();
+          perbaruiInfoUkuran();
+        }
+      }
+      state.gayaPreview = null;
+    }
+    document.querySelectorAll('[data-preview]').forEach((b) =>
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bukaContohGaya(b.dataset.preview);
       }));
 
     /* ---- laci thumbnail (drawer) ---- */
@@ -1740,6 +2030,24 @@
       drawerTerbuka() ? tutupDrawer() : bukaDrawer());
     $('#btn-drawer-tutup').addEventListener('click', tutupDrawer);
     $('#drawer-overlay').addEventListener('click', tutupDrawer);
+    const drawer = $('#drawer-buku');
+    let drawerSentuhAwal = null;
+    drawer.addEventListener('touchstart', (e) => {
+      if (!drawerTerbuka() || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      drawerSentuhAwal = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    drawer.addEventListener('touchend', (e) => {
+      if (!drawerSentuhAwal || e.changedTouches.length !== 1) {
+        drawerSentuhAwal = null;
+        return;
+      }
+      const t = e.changedTouches[0];
+      const dy = t.clientY - drawerSentuhAwal.y;
+      const dx = Math.abs(t.clientX - drawerSentuhAwal.x);
+      drawerSentuhAwal = null;
+      if (dy > 64 && dy > dx * 1.2) tutupDrawer();
+    }, { passive: true });
 
     /* ---- toolbar melayang: tampil saat interaksi, menyusut saat diam ---- */
     let terakhirGerak = 0;
@@ -1778,18 +2086,10 @@
     tombolSuara.setAttribute('aria-pressed', String(state.soundOn));
     tombolSuara.addEventListener('click', () => {
       state.soundOn = !state.soundOn;
+      simpanPreferensi();
       // Ikon berubah lewat CSS berdasarkan aria-pressed (nyala <-> mati)
       tombolSuara.setAttribute('aria-pressed', String(state.soundOn));
       if (state.soundOn) { initAudio(); putarSuara(); } // contoh suara
-    });
-
-    $('#btn-fullscreen').addEventListener('click', toggleFullscreen);
-    document.addEventListener('fullscreenchange', () => {
-      const aktif = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      const tf = $('#btn-fullscreen');
-      tf.setAttribute('aria-pressed', String(aktif));
-      tf.setAttribute('aria-label', aktif ? 'Keluar dari layar penuh' : 'Mode layar penuh');
-      setTimeout(fitStage, 60);
     });
 
     /* ---- keyboard ---- */
@@ -1807,17 +2107,8 @@
           if (state.pageFlip) keHalaman(state.pageFlip.getPageCount() - 1);
           break;
         case 'Escape':
-          // Esc menutup laci dahulu; baru keluar dari layar buku
           if (drawerTerbuka()) { tutupDrawer(); break; }
-          if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            tampilkanLayar('setup');
-          }
-          break;
-        case 'f': case 'F':
-          if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-            e.preventDefault();
-            toggleFullscreen();
-          }
+          tampilkanLayar('setup');
           break;
       }
     });
@@ -1828,10 +2119,13 @@
       // Kembali ke zoom normal bila lebar layar berpindah mode (HP/desktop)
       if ((lebarSebelumnya < 700) !== (window.innerWidth < 700)) resetZoom();
       lebarSebelumnya = window.innerWidth;
-      fitStage();
+      ukuranPanggungTerakhir = '';   // paksa pengukuran ulang
+      pantauPanggung();
     }, 150);
     window.addEventListener('resize', saatResize);
     window.addEventListener('orientationchange', saatResize); // rotasi HP
+    // Tinggi bilah alamat HP (visual viewport) juga mengubah ruang buku
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', saatResize);
 
     /* ---- gesture zoom ---- */
     pasangGesturZoom();
@@ -1842,15 +2136,218 @@
   }
 
   /* =========================================================================
+   * 12b. MENU TERSIMPAN DAN TAUTAN PUBLIK
+   * ====================================================================== */
+  let menuTersimpanId = new URLSearchParams(location.search).get('edit') || '';
+
+  function slugOtomatis(teks) {
+    return String(teks || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+  }
+
+  function aturStatusTerbit(pesan, error = false) {
+    const status = $('#publish-status');
+    if (!status) return;
+    status.textContent = pesan;
+    status.hidden = !pesan;
+    status.dataset.error = error ? 'true' : 'false';
+  }
+
+  async function apiMenu(url, options = {}) {
+    const { headers, ...requestOptions } = options;
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      ...requestOptions,
+      headers: { 'Content-Type': 'application/json', ...(headers || {}) }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(data.error || 'Permintaan belum berhasil.'), { status: response.status });
+    return data;
+  }
+
+  async function gambarKeDataUrl(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Salah satu halaman tidak dapat dibaca.');
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Gambar halaman gagal disiapkan.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function terbitkanMenu() {
+    const tombol = $('#publish-button');
+    if (!tombol) return;
+    if (!state.pages.length) return aturStatusTerbit('Tambahkan minimal satu halaman sebelum menerbitkan.', true);
+    const cafeName = $('#publish-cafe-name').value.trim();
+    const slug = $('#publish-slug').value.trim().toLowerCase();
+    if (cafeName.length < 2) return aturStatusTerbit('Isi nama kafe atau tempat usaha.', true);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length < 3 || slug.length > 48) {
+      return aturStatusTerbit('Alamat harus 3–48 karakter dan hanya memakai huruf kecil, angka, atau tanda hubung.', true);
+    }
+
+    try {
+      const { user } = await apiMenu('/api/auth/me');
+      if (!user) {
+        aturStatusTerbit('Masuk atau buat akun melalui tombol di samping, lalu terbitkan lagi.');
+        return;
+      }
+      tombol.disabled = true;
+      tombol.textContent = 'Menyimpan halaman…';
+      aturStatusTerbit('Mengunggah dan menyimpan halaman menu…');
+      const pages = [];
+      for (const page of state.pages) {
+        pages.push({
+          name: page.nama, w: page.w, h: page.h, fit: page.fit,
+          dataUrl: await gambarKeDataUrl(page.url)
+        });
+      }
+      const menu = await apiMenu('/api/menus', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: menuTersimpanId || undefined,
+          cafeName, slug,
+          orientation: state.orientasi,
+          binding: state.jilid,
+          sizePreset: state.ukuranPreset,
+          customWidth: state.ukuranCustom.w,
+          customHeight: state.ukuranCustom.h,
+          pages
+        })
+      });
+      menuTersimpanId = menu.id;
+      history.replaceState(null, '', `/?edit=${encodeURIComponent(menu.id)}`);
+      $('#publish-slug').value = menu.slug;
+      $('#publish-result-link').href = menu.url;
+      $('#publish-result-link').textContent = new URL(menu.url, location.origin).href;
+      $('#publish-result').hidden = false;
+      $('#publish-account-link').textContent = 'Kelola menu di akun';
+      aturStatusTerbit('Menu tersimpan dan link publiknya sudah aktif.');
+      tombol.textContent = 'Perbarui menu';
+    } catch (error) {
+      if (error.status === 401) {
+        aturStatusTerbit('Masuk atau buat akun melalui tombol di samping, lalu terbitkan lagi.');
+      } else aturStatusTerbit(error.message, true);
+    } finally {
+      tombol.disabled = false;
+      if (tombol.textContent === 'Menyimpan halaman…') tombol.textContent = menuTersimpanId ? 'Perbarui menu' : 'Simpan & terbitkan';
+    }
+  }
+
+  function pasangKendaliTerbit() {
+    const cafeInput = $('#publish-cafe-name');
+    const slugInput = $('#publish-slug');
+    $('#publish-account-link').href = `/akun?return=${encodeURIComponent(location.pathname + location.search)}`;
+    cafeInput.addEventListener('input', () => {
+      if (slugInput.dataset.manual !== 'true') slugInput.value = slugOtomatis(cafeInput.value);
+    });
+    slugInput.addEventListener('input', () => {
+      slugInput.dataset.manual = 'true';
+      slugInput.value = slugInput.value.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-{2,}/g, '-');
+    });
+    $('#publish-button').addEventListener('click', terbitkanMenu);
+    $('#publish-copy-button').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText($('#publish-result-link').href);
+        aturStatusTerbit('Link menu disalin.');
+      } catch { aturStatusTerbit(`Salin link ini: ${$('#publish-result-link').href}`); }
+    });
+    apiMenu('/api/auth/me').then(({ user }) => {
+      if (user) $('#publish-account-link').textContent = 'Kelola menu di akun';
+    }).catch(() => {});
+  }
+
+  function terapkanMenuCloud(menu) {
+    state.pages = menu.pages.map((page) => ({
+      id: state.idSeq++, nama: page.name, url: page.url, w: page.w, h: page.h,
+      fit: page.fit === 'contain' ? 'contain' : 'cover', rasioOk: true,
+      blank: false, contoh: false
+    }));
+    state.orientasi = menu.orientation;
+    state.jilid = menu.binding;
+    state.ukuranPreset = menu.sizePreset;
+    if (menu.sizePreset === 'custom') {
+      state.ukuranCustom.w = Number(menu.customWidth);
+      state.ukuranCustom.h = Number(menu.customHeight);
+      $('#in-lebar').value = state.ukuranCustom.w;
+      $('#in-tinggi').value = state.ukuranCustom.h;
+    }
+    $('#sel-ukuran').value = menu.sizePreset;
+    $('#publish-cafe-name').value = menu.cafeName;
+    $('#publish-slug').value = menu.slug;
+    $('#publish-slug').dataset.manual = 'true';
+    sinkronSegmen();
+    perbaruiInfoUkuran();
+    periksaRasio();
+    renderDaftar();
+    perbaruiInfoAksi();
+    menuTersimpanId = menu.id;
+    $('#publish-button').textContent = 'Perbarui menu';
+    $('#publish-account-link').textContent = 'Kelola menu di akun';
+    $('#publish-result-link').href = menu.url;
+    $('#publish-result-link').textContent = new URL(menu.url, location.origin).href;
+    $('#publish-result').hidden = false;
+  }
+
+  async function bukaMenuEdit(id) {
+    try {
+      const menu = await apiMenu(`/api/menus/${encodeURIComponent(id)}`);
+      terapkanMenuCloud(menu);
+      document.title = `Mengubah ${menu.cafeName} · Swipe.menu`;
+    } catch (error) {
+      if (error.status === 401) {
+        const returnTo = `/?edit=${encodeURIComponent(id)}`;
+        location.assign(`/akun?return=${encodeURIComponent(returnTo)}`);
+      } else aturStatusTerbit(error.message, true);
+    }
+  }
+
+  async function bukaMenuPublik(slug) {
+    document.documentElement.dataset.menuPublik = 'true';
+    $('#screen-setup').hidden = true;
+    try {
+      const menu = await apiMenu(`/api/public/menus/${encodeURIComponent(slug)}`);
+      terapkanMenuCloud(menu);
+      $('#nama-usaha-book').textContent = menu.cafeName;
+      document.title = `${menu.cafeName} · Buku menu`;
+      await bukaLayarBuku();
+    } catch (error) {
+      $('#screen-book').hidden = true;
+      $('#menu-not-found').hidden = false;
+      $('#menu-not-found-message').textContent = error.status === 404
+        ? 'Link ini tidak ditemukan atau menunya sudah tidak tersedia.'
+        : 'Menu belum dapat dimuat. Periksa koneksi lalu muat ulang halaman.';
+      document.title = 'Menu tidak tersedia · Swipe.menu';
+    }
+  }
+
+  /* =========================================================================
    * 13. MULAI APLIKASI
    * ====================================================================== */
   function mulai() {
     pasangTema();
+    bacaPreferensi();
     terapkanBranding();
     pasangEvent();
-    inisialisasiFullscreen();
+    if (typeof ResizeObserver !== 'undefined') {
+      pengamatPanggung = new ResizeObserver(pantauPanggung);
+      pengamatPanggung.observe($('#book-stage'));
+    }
+    pindahkanToast(false);      // notifikasi mulai di layar penyusun
     perbaruiInfoUkuran();       // sekalian mengisi info & daftar halaman
     terapkanTransform();
+
+    const slugPublik = location.pathname.match(/^\/menu\/([a-z0-9-]+)\/?$/)?.[1];
+    if (slugPublik) {
+      bukaMenuPublik(slugPublik);
+      return;
+    }
+    if (menuTersimpanId) {
+      bukaMenuEdit(menuTersimpanId);
+      return;
+    }
 
     // Menu contoh agar website langsung bisa dicoba tanpa unggah
     if (KONFIG.sample.autoLoad && KONFIG.sample.pages.length) {

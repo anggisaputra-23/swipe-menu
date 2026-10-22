@@ -11,6 +11,27 @@ ehthumbs.db
 
 # Sampah pengembangan (server lokal, uji coba)
 node_modules/
+data/
 *.log
 *.tmp
 .cache/
+
+# Konfigurasi dan kredensial lokal
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Bahan lokal yang tidak dikirim bersama aplikasi
+artifacts/
+audit-screenshots/
+.agents/
+.claude/
+.codex/
+.opencode/
+AGENTS.md
+CLAUDE.md

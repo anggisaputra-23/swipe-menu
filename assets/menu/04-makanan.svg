@@ -1,51 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1754" viewBox="0 0 1240 1754">
   <!-- Halaman demo: makanan -->
-  <rect width="1240" height="1754" fill="#F4EFE4"/>
+  <rect width="1240" height="1754" fill="#FAF7F1"/>
 
-  <text x="90" y="190" font-family="Helvetica, Arial, sans-serif" font-size="30" letter-spacing="10" fill="#6B6558">FOOD</text>
-  <text x="90" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="98" fill="#16150F">Makanan</text>
-  <rect x="90" y="342" width="130" height="9" fill="#E8A020"/>
+  <text x="90" y="190" font-family="Helvetica, Arial, sans-serif" font-size="30" letter-spacing="10" fill="#575047">FOOD</text>
+  <text x="90" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="98" fill="#101114">Makanan</text>
+  <rect x="90" y="342" width="130" height="9" fill="#C2410C"/>
 
   <g font-family="Helvetica, Arial, sans-serif">
     <g>
-      <text x="90" y="500" font-family="Georgia, serif" font-size="46" fill="#16150F">Nasi Goreng Spesial</text>
-      <text x="1150" y="500" text-anchor="end" font-size="40" fill="#16150F">Rp 32.000</text>
-      <line x1="90" y1="522" x2="1150" y2="522" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="566" font-size="30" fill="#6B6558">Telur mata sapi, acar, dan kerupuk.</text>
+      <text x="90" y="500" font-family="Georgia, serif" font-size="46" fill="#101114">Nasi Goreng Spesial</text>
+      <text x="1150" y="500" text-anchor="end" font-size="40" fill="#101114">Rp 32.000</text>
+      <line x1="90" y1="522" x2="1150" y2="522" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="566" font-size="30" fill="#575047">Telur mata sapi, acar, dan kerupuk.</text>
     </g>
     <g>
-      <text x="90" y="685" font-family="Georgia, serif" font-size="46" fill="#16150F">Mie Goreng Jawa</text>
-      <text x="1150" y="685" text-anchor="end" font-size="40" fill="#16150F">Rp 28.000</text>
-      <line x1="90" y1="707" x2="1150" y2="707" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="751" font-size="30" fill="#6B6558">Manis-gurih, ditabur daun bawang.</text>
+      <text x="90" y="685" font-family="Georgia, serif" font-size="46" fill="#101114">Mie Goreng Jawa</text>
+      <text x="1150" y="685" text-anchor="end" font-size="40" fill="#101114">Rp 28.000</text>
+      <line x1="90" y1="707" x2="1150" y2="707" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="751" font-size="30" fill="#575047">Manis-gurih, ditabur daun bawang.</text>
     </g>
     <g>
-      <text x="90" y="870" font-family="Georgia, serif" font-size="46" fill="#16150F">Ayam Geprek Sambal</text>
-      <text x="1150" y="870" text-anchor="end" font-size="40" fill="#16150F">Rp 30.000</text>
-      <line x1="90" y1="892" x2="1150" y2="892" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="936" font-size="30" fill="#6B6558">Ayam renyah, sambal bawang pedas.</text>
+      <text x="90" y="870" font-family="Georgia, serif" font-size="46" fill="#101114">Ayam Geprek Sambal</text>
+      <text x="1150" y="870" text-anchor="end" font-size="40" fill="#101114">Rp 30.000</text>
+      <line x1="90" y1="892" x2="1150" y2="892" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="936" font-size="30" fill="#575047">Ayam renyah, sambal bawang pedas.</text>
     </g>
     <g>
-      <text x="90" y="1055" font-family="Georgia, serif" font-size="46" fill="#16150F">Sandwich Telur</text>
-      <text x="1150" y="1055" text-anchor="end" font-size="40" fill="#16150F">Rp 25.000</text>
-      <line x1="90" y1="1077" x2="1150" y2="1077" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="1121" font-size="30" fill="#6B6558">Roti panggang, telur orak-arik, selada.</text>
+      <text x="90" y="1055" font-family="Georgia, serif" font-size="46" fill="#101114">Sandwich Telur</text>
+      <text x="1150" y="1055" text-anchor="end" font-size="40" fill="#101114">Rp 25.000</text>
+      <line x1="90" y1="1077" x2="1150" y2="1077" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1121" font-size="30" fill="#575047">Roti panggang, telur orak-arik, selada.</text>
     </g>
     <g>
-      <text x="90" y="1240" font-family="Georgia, serif" font-size="46" fill="#16150F">Salad Ayam Panggang</text>
-      <text x="1150" y="1240" text-anchor="end" font-size="40" fill="#16150F">Rp 34.000</text>
-      <line x1="90" y1="1262" x2="1150" y2="1262" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="1306" font-size="30" fill="#6B6558">Sayur segar, saus madu mustard.</text>
+      <text x="90" y="1240" font-family="Georgia, serif" font-size="46" fill="#101114">Salad Ayam Panggang</text>
+      <text x="1150" y="1240" text-anchor="end" font-size="40" fill="#101114">Rp 34.000</text>
+      <line x1="90" y1="1262" x2="1150" y2="1262" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1306" font-size="30" fill="#575047">Sayur segar, saus madu mustard.</text>
     </g>
     <g>
-      <text x="90" y="1425" font-family="Georgia, serif" font-size="46" fill="#16150F">Kentang Goreng</text>
-      <text x="1150" y="1425" text-anchor="end" font-size="40" fill="#16150F">Rp 18.000</text>
-      <line x1="90" y1="1447" x2="1150" y2="1447" stroke="#16150F" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
-      <text x="90" y="1491" font-size="30" fill="#6B6558">Renyah, ditambah saus tomat.</text>
+      <text x="90" y="1425" font-family="Georgia, serif" font-size="46" fill="#101114">Kentang Goreng</text>
+      <text x="1150" y="1425" text-anchor="end" font-size="40" fill="#101114">Rp 18.000</text>
+      <line x1="90" y1="1447" x2="1150" y2="1447" stroke="#101114" stroke-width="2" stroke-dasharray="2 8" opacity=".3"/>
+      <text x="90" y="1491" font-size="30" fill="#575047">Renyah, ditambah saus tomat.</text>
     </g>
   </g>
 
-  <line x1="90" y1="1640" x2="1150" y2="1640" stroke="#16150F" stroke-width="1.5" opacity=".2"/>
-  <text x="90" y="1694" font-family="Helvetica, Arial, sans-serif" font-size="26" letter-spacing="6" fill="#6B6558">SWIPE.MENU · MENU DEMO</text>
-  <text x="1150" y="1694" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="#6B6558">04</text>
+  <line x1="90" y1="1640" x2="1150" y2="1640" stroke="#101114" stroke-width="1.5" opacity=".2"/>
+  <text x="90" y="1694" font-family="Helvetica, Arial, sans-serif" font-size="26" letter-spacing="6" fill="#575047">SWIPE.MENU · MENU DEMO</text>
+  <text x="1150" y="1694" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="#575047">04</text>
 </svg>

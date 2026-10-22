@@ -13,27 +13,32 @@ window.APP_CONFIG = {
    * -------------------------------------------------------------------- */
   brand: {
     nama: 'Swipe.menu',
-    tagline: 'Unggah foto menu, atur urutannya, lalu bagikan satu tautan. Pengunjung membalik halamannya seperti buku asli.',
+    // Slogan utama — singkat, langsung menekankan manfaat (berbagi satu tautan)
+    tagline: 'Satu tautan, satu buku menu.',
+    kalimatPendukung: 'Unggah fotonya, susun urutannya, lalu bagikan. Pelanggan membalik halamannya langsung dari HP.',
     logo: 'assets/logo.svg',        // kosongkan ('') bila tidak pakai logo
     favicon: 'assets/logo.svg'
   },
 
   /* -----------------------------------------------------------------------
-   * 2. TAMPILAN / PALET WARNA (Ink + Saffron)
-   * - backgroundColor : warna latar gelap layar buku & panel hero
+   * 2. TAMPILAN / PALET WARNA (Netral + satu aksen)
+   * - backgroundColor : warna panggung mode gelap (hijau arang)
+   * - backgroundColorLight : warna panggung mode terang (kertas hangat)
    * - backgroundImage : gambar latar (mis. tekstur meja kayu). '' = tanpa gambar.
    *   Saat memakai gambar latar, sistem otomatis menambahkan overlay gelap
    *   agar buku menu tetap menonjol (lihat overlayOpacity).
-   * - accentColor     : warna aksen (saffron) tombol, banner, dan sorotan.
+   * - accentColor     : satu-satunya warna aksen (tombol utama, status aktif).
    * - paperColor      : warna kertas halaman buku.
    * Mode terang/gelap situs diatur pengunjung lewat tombol tema di header.
    * -------------------------------------------------------------------- */
   theme: {
-    backgroundColor: '#16150F',     // tinta hangat
+    backgroundColor: '#1C2723',    // panggung hijau arang untuk mode gelap
+    backgroundColorLight: '#EFE6D6', // krem terang untuk hero & panggung mode terang
     backgroundImage: '',            // contoh: 'assets/latar/meja-kayu.jpg'
     overlayOpacity: 0.45,
-    accentColor: '#E8A020',         // saffron
-    paperColor: '#F7F3EA'           // kertas hangat
+    accentColor: '#C2410C',         // terakota
+    accentColorGelap: '#9A3412',
+    paperColor: '#FAF7F1'           // kertas cetak
   },
 
   /* -----------------------------------------------------------------------
@@ -43,7 +48,7 @@ window.APP_CONFIG = {
   links: {
     whatsapp: {
       number: '6281234567890',                        // format internasional tanpa '+'
-      message: 'Halo, saya ingin bertanya soal Swipe.menu.' // pesan otomatis saat tombol ditekan
+      message: 'Halo, saya ingin memperoleh informasi tentang buku menu digital Swipe.menu.' // pesan otomatis saat tombol ditekan
     },
     instagram: 'https://instagram.com/swipemenu',
     lokasi: ''                                        // contoh: 'https://maps.google.com/?q=...'
@@ -64,10 +69,9 @@ window.APP_CONFIG = {
     dpiDisarankan: 150,      // dipakai untuk hitungan "resolusi disarankan"
     maksHalaman: 40,         // batas jumlah halaman unggahan
     maksFileMB: 5,           // batas ukuran tiap file gambar
-    minWidthPx: 220,         // lebar minimum (px) 1 halaman -> bila lebar panggung
-                             // < 2×nilai ini (440 px), buku tampil 1 halaman
-                             // (HP portrait). Di atas itu tampil spread 2 halaman
-                             // (tablet, desktop, HP landscape).
+    minWidthPx: 220,         // lebar minimum (px) setiap halaman saat spread
+                             // dirender. Pada layar sempit, spread diperkecil
+                             // secara visual agar tetap utuh.
     flippingTime: 700,       // lama animasi membalik (ms)
     kompresGambar: true,     // otomatis perkecil & konversi ke WebP agar ringan
     kompresFaktor: 1.25      // resolusi target kompresi = rekomendasi × faktor
@@ -84,18 +88,88 @@ window.APP_CONFIG = {
 
   /* -----------------------------------------------------------------------
    * 6. MENU CONTOH
-   * Halaman contoh agar website langsung bisa dicoba tanpa unggah.
-   * Setiap entri: { src, alt } — src berupa path gambar lokal atau URL.
+   * Empat menu yang sudah jadi, siap dibuka sebagai contoh. Tiap menu
+   * beranggota 4 halaman (sampul, isi 1, isi 2, sampul belakang) supaya
+   * buku tidak perlu halaman kosong tambahan.
    * -------------------------------------------------------------------- */
   sample: {
-    autoLoad: true,          // langsung tampil saat website dibuka
+    autoLoad: false,         // pengguna mengunggah halaman sebelum membuka buku
+    menus: [
+      {
+        id: 'kopi',
+        nama: 'Menu Kopi',
+        ringkas: 'Kopi panas, kopi susu, dan harga contoh.',
+        cover: 'assets/menu/sampul-kopi.svg',
+        pages: [
+          { src: 'assets/menu/sampul-kopi.svg', alt: 'Sampul depan menu kopi' },
+          { src: 'assets/menu/02-kopi-panas.svg', alt: 'Halaman kopi panas' },
+          { src: 'assets/menu/kopi-susu.svg', alt: 'Halaman kopi susu' },
+          { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang' }
+        ]
+      },
+      {
+        id: 'makanan',
+        nama: 'Menu Makanan',
+        ringkas: 'Sarian, sarapan, dan harga contoh.',
+        cover: 'assets/menu/sampul-makanan.svg',
+        pages: [
+          { src: 'assets/menu/sampul-makanan.svg', alt: 'Sampul depan menu makanan' },
+          { src: 'assets/menu/04-makanan.svg', alt: 'Halaman makanan' },
+          { src: 'assets/menu/sarapan.svg', alt: 'Halaman sarapan' },
+          { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang' }
+        ]
+      },
+      {
+        id: 'minuman',
+        nama: 'Menu Minuman',
+        ringkas: 'Minuman dingin, jus, dan teh.',
+        cover: 'assets/menu/sampul-minuman.svg',
+        pages: [
+          { src: 'assets/menu/sampul-minuman.svg', alt: 'Sampul depan menu minuman' },
+          { src: 'assets/menu/03-minuman-dingin.svg', alt: 'Halaman minuman dingin' },
+          { src: 'assets/menu/jus-teh.svg', alt: 'Halaman jus dan teh' },
+          { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang' }
+        ]
+      },
+      {
+        id: 'promo',
+        nama: 'Menu Promo',
+        ringkas: 'Camilan harian dan paket hemat.',
+        cover: 'assets/menu/sampul-promo.svg',
+        pages: [
+          { src: 'assets/menu/sampul-promo.svg', alt: 'Sampul depan menu promo' },
+          { src: 'assets/menu/05-camilan-promo.svg', alt: 'Halaman camilan dan promo' },
+          { src: 'assets/menu/paket-hemat.svg', alt: 'Halaman paket hemat' },
+          { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang' }
+        ]
+      }
+    ],
+    // Halaman contoh untuk tombol "Gunakan menu contoh" (menu pertama).
     pages: [
-      { src: 'assets/menu/01-sampul-depan.svg',    alt: 'Sampul depan menu demo' },
-      { src: 'assets/menu/02-kopi-panas.svg',      alt: 'Halaman menu kopi panas' },
-      { src: 'assets/menu/03-minuman-dingin.svg',  alt: 'Halaman menu minuman dingin' },
-      { src: 'assets/menu/04-makanan.svg',         alt: 'Halaman menu makanan' },
-      { src: 'assets/menu/05-camilan-promo.svg',   alt: 'Halaman menu camilan dan promo' },
-      { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang menu demo' }
+      { src: 'assets/menu/sampul-kopi.svg', alt: 'Sampul depan menu contoh' },
+      { src: 'assets/menu/02-kopi-panas.svg', alt: 'Halaman menu kopi panas' },
+      { src: 'assets/menu/kopi-susu.svg', alt: 'Halaman menu kopi susu' },
+      { src: 'assets/menu/06-sampul-belakang.svg', alt: 'Sampul belakang menu contoh' }
+    ],
+    // Halaman portrait dibuat dari gambar yang diberikan pengguna.
+    portraitPages: [
+      { src: 'assets/menu/portrait/sampul-menu.jpg', alt: 'Sampul menu Nusantara portrait' },
+      { src: 'assets/menu/portrait/hidangan-utama.jpg', alt: 'Halaman hidangan utama portrait' },
+      { src: 'assets/menu/portrait/kue-klepon.jpg', alt: 'Halaman kue klepon portrait' },
+      { src: 'assets/menu/portrait/kue-tradisional.jpg', alt: 'Halaman kue tradisional portrait' },
+      { src: 'assets/menu/portrait/menu-kopi.jpg', alt: 'Halaman menu kopi portrait' },
+      { src: 'assets/menu/portrait/minuman-non-kopi.jpg', alt: 'Halaman minuman non-kopi portrait' },
+      { src: 'assets/menu/portrait/minuman-tradisional.jpg', alt: 'Halaman minuman tradisional portrait' },
+      { src: 'assets/menu/portrait/sampul-belakang.jpg', alt: 'Sampul belakang menu portrait' }
+    ],
+    // Halaman landscape dibuat dari gambar yang diberikan pengguna.
+    landscapePages: [
+      { src: 'assets/menu/landscape/sampul-menu.jpg', alt: 'Sampul menu Nusantara landscape' },
+      { src: 'assets/menu/landscape/menu-kopi.jpg', alt: 'Halaman menu kopi landscape' },
+      { src: 'assets/menu/landscape/hidangan-utama.jpg', alt: 'Halaman hidangan utama landscape' },
+      { src: 'assets/menu/landscape/kue-tradisional.jpg', alt: 'Halaman kue tradisional landscape' },
+      { src: 'assets/menu/landscape/halaman-kue-putu.jpg', alt: 'Halaman kue putu landscape' },
+      { src: 'assets/menu/landscape/sampul-belakang.jpg', alt: 'Sampul belakang menu landscape' }
     ]
   },
 

@@ -4,26 +4,56 @@ Template buku menu digital untuk UMKM: unggah foto menu, lalu menu tampil
 seperti buku asli dengan animasi membalik halaman (library
 [StPageFlip](https://github.com/StPageFlip/Page-Flip)).
 
-Murni **HTML + CSS + JavaScript** — tanpa framework, tanpa proses build.
-Cukup buka `index.html` di peramban.
+Antarmuka menggunakan HTML, CSS, dan JavaScript tanpa framework. Akun dan
+publikasi menu berjalan pada server Node.js 24 atau lebih baru. Jalankan
+`npm start`, lalu buka `http://localhost:3001`.
 
-Desain: palet *Ink + Saffron* (tinta gelap + aksen kuning saffron), tanpa emoji,
-tanpa efek kaca/gradien ungu generik. Font: Fraunces + Schibsted Grotesk +
-DM Mono.
+Desain: mode terang memakai kertas hangat, mode gelap memakai hijau arang,
+keduanya memakai aksen terakota;
+tipografi editorial menjaga hubungan visual dengan buku cetak. Judul memakai
+Fraunces (serif editorial) karena produk ini adalah "buku", isi memakai Plus
+Jakarta Sans, dan DM Mono dipakai untuk angka halaman serta label teknis.
+
+Warna utama dapat diganti dari token di bagian `1. Token & tema` pada
+`css/style.css`. Ubah `--warna-aksen`, `backgroundColor` dan `backgroundColorLight` di
+`js/config.js`, serta `--halaman`, token
+permukaan, teks, dan garis untuk menyesuaikan palet terang; nilai tema gelap
+berada pada selector `[data-tema="gelap"]` dan mode otomatis. Warna merek pada
+`js/config.js` menimpa token yang sama, jadi ubah di sana untuk tiap klien.
 
 ---
 
 ## 1. Cara Menjalankan
 
-1. Salin seluruh folder ini ke hosting/static server, **atau** buka langsung
-   `index.html` dengan klik dua kali (file:// juga berfungsi).
-2. Saat pertama dibuka, website sudah menampilkan **menu contoh** (6 halaman)
-   sehingga bisa langsung dicoba tanpa unggah apa pun.
+1. Untuk memakai akun dan menerbitkan menu, jalankan server aplikasi dengan
+   `npm start`, lalu buka `http://localhost:3001`. Mode ini menyimpan akun,
+   data menu, dan gambar di folder `data/`.
+2. Untuk uji tampilan statis, `index.html` masih dapat dibuka langsung, tetapi
+   fitur akun dan link publik memerlukan server aplikasi.
+3. Saat pertama dibuka, website menunggu Anda mengunggah halaman menu. Bagian
+   **Contoh gaya buku** memperlihatkan pilihan bentuk dan jilid buku. Tombol
+   **Gunakan menu contoh** di dalam alat memuat menu contoh tanpa langsung membuka buku.
 
 > Library flipbook diambil dari CDN (`cdn.jsdelivr.net`), jadi peramban perlu
 > koneksi internet saat pertama dibuka. Bila ingin sepenuhnya offline, unduh
 > `page-flip.browser.js` lalu ganti tag `<script>` di `index.html` dengan file
 > lokal.
+
+### Akun dan link menu
+
+1. Pilih **Akun pemilik**, lalu buat akun dengan email dan kata sandi.
+2. Kembali ke penyusun, unggah dan atur halaman seperti biasa.
+3. Isi nama kafe dan alamat menu, lalu pilih **Simpan & terbitkan**. Alamat
+   seperti `/menu/kopi-senja` dapat dibagikan tanpa akun.
+4. Masuk ke **Akun pemilik** untuk menyalin link, mengubah menu, atau menghapusnya.
+
+Untuk menjalankan lewat Docker, gunakan `docker compose up --build`. Volume
+`swipemenu-data` menyimpan database dan gambar agar tetap ada saat container
+diganti. Agar pelanggan dapat membukanya di internet, pasang aplikasi pada
+server dengan domain dan HTTPS; server satu komputer lokal hanya bisa dibuka
+oleh perangkat yang dapat menjangkaunya. Saat berada di balik reverse proxy,
+isi `PUBLIC_ORIGIN` dengan URL HTTPS dan set `TRUST_PROXY=true` agar validasi
+asal permintaan, cookie, dan pembatas percobaan akun mengikuti proxy tepercaya.
 
 ## 2. Struktur Folder
 
@@ -37,25 +67,61 @@ buku-menu/
 │   └── app.js            ← logika: unggah, urutan, validasi, flipbook, zoom, tema
 ├── assets/
 │   ├── logo.svg          ← logo contoh
-│   └── menu/             ← 6 gambar menu contoh (rasio A4)
-│       ├── 01-sampul-depan.svg
-│       ├── 02-kopi-panas.svg
-│       ├── 03-minuman-dingin.svg
-│       ├── 04-makanan.svg
-│       ├── 05-camilan-promo.svg
-│       └── 06-sampul-belakang.svg
+│   └── menu/             ← gambar menu contoh (rasio A4, 1240 × 1754)
+│       ├── sampul-kopi.svg, sampul-makanan.svg,
+│       │   sampul-minuman.svg, sampul-promo.svg   ← sampul tiap menu siap pakai
+│       ├── 02-kopi-panas.svg, 03-minuman-dingin.svg,
+│       │   04-makanan.svg, 05-camilan-promo.svg   ← halaman isi
+│       ├── kopi-susu.svg, sarapan.svg,
+│       │   jus-teh.svg, paket-hemat.svg           ← halaman isi kedua
+│       └── 06-sampul-belakang.svg                 ← sampul belakang
 └── docs/
     ├── prd.md            ← dokumen kebutuhan produk
     └── banding-jilid.html ← halaman contoh 3 gaya jilid (alat bantu memilih)
++-- scripts/diagnostics/  # alat audit dan pengukuran, tidak dipakai aplikasi
++-- tests/                # berkas isolasi untuk pemeriksaan manual
++-- artifacts/visual-audits/ # arsip dan baseline tangkapan layar
 ```
+
+### Peralatan pengembangan
+
+Skrip pemeriksaan dan pengukuran disimpan di `scripts/diagnostics/`, terpisah
+dari berkas aplikasi. Arsip tangkapan layar lama disimpan di
+`artifacts/visual-audits/archive/`, sedangkan baseline ukuran ada di
+`artifacts/visual-audits/baseline/`. Hasil audit baru masuk ke folder
+`latest-audit/` dan `latest-measurement/`.
+Gerak teks seperti lembar yang dibuka diatur terpisah di `js/motion.js`;
+animasi berhenti otomatis saat preferensi kurangi gerak aktif.
+
+```sh
+npm run check:layout-tokens
+npm run measure:landing -- artifacts/visual-audits/latest-measurement
+npm run measure:element -- '.kartu[data-kartu="1"]' 390 844
+```
+
+`npm run audit:layout` menggunakan server lokal pada port 5500 secara bawaan.
+Atur `SWIPE_URL` bila alamat server berbeda. Pemeriksaan spiral menaruh hasil
+tangkapan di direktori sementara sistem, bukan di folder aplikasi.
 
 ## 3. Fitur
 
 **Bentuk & tampilan buku**
 - **Bentuk halaman**: *Portrait* (tegak, 210 × 297 mm) atau *Landscape*
-  (lebar, 297 × 210 mm) — dipilih lewat kontrol bersegmen di kartu Ukuran.
-- **Jenis jilid**: *Biasa* atau *Spiral Kawat* — dipilih lewat kontrol
-  bersegmen di kartu Ukuran.
+  (lebar, 297 × 210 mm) — dipilih melalui kontrol **Bentuk halaman** pada
+  kartu Ukuran halaman.
+- **Jenis jilid**: *Jilid biasa* atau *Spiral kawat* — dipilih melalui kontrol
+  **Jenis jilid** pada kartu Ukuran halaman.
+- Ringkasan konfigurasi aktif ditampilkan di bawah rasio dan resolusi halaman.
+  Ukuran, orientasi, jenis jilid, dan pilihan suara disimpan di peramban agar
+  pilihan terakhir tetap tersedia setelah halaman dimuat ulang.
+- Bagian **Contoh gaya buku** berdiri sendiri dari konfigurasi pada kartu
+  Ukuran halaman. Setiap kartu menyediakan satu ikon mata untuk membuka contoh
+  langsung di flipbook. Ikon mata tidak mengubah pilihan konfigurasi Anda;
+  jika Anda sudah mengunggah halaman sendiri, halaman dan konfigurasi tersebut
+  disimpan lalu dipulihkan ketika kembali ke Pengaturan.
+- Empat pilihan gaya adalah Portrait + jilid biasa, Portrait + spiral kawat,
+  Landscape + jilid biasa, dan Landscape + spiral kawat. Miniatur kartu
+  menggunakan rasio tetap agar halaman Landscape tampil utuh.
   - **Biasa** — punggung buku polos seperti buku lem/jahit biasa: tidak ada
     kawat, tidak ada garis atau lengkung apa pun. Hanya tepi kertas asli dan
     bayangan punggung buku yang tampak (ditambah bayangan lipatan saat spread).
@@ -75,15 +141,16 @@ buku-menu/
     tampil sendirian, separuh buku yang kosong tetap bersih.
   - Bingung soal kerapatan/gaya kawat? Buka `docs/banding-jilid.html` di
     peramban: ada 3 gaya contoh (A = dipakai sekarang, B = gaya "jahit" lama,
-    C = lebih rapat) dalam dua tampilan — **satu halaman (portrait)** dan
+    C = lebih rapat) dalam dua tampilan — **sampul tunggal** dan
     **buku terbuka (spread)** — untuk dibandingkan berdampingan.
   - Ketebalan sampul (pita lembaran tipis di tepi sampul) hanya muncul pada
     jilid **Biasa** saat buku tampil sebagai spread (2 halaman).
 
 **Menyesuaikan perangkat (responsif)**
 - Mobile-first, breakpoint 480 / 768 / 1024 / 1440 px.
-- HP portrait & layar sempit = **1 halaman penuh**; tablet, desktop, dan HP
-  landscape lebar = **spread 2 halaman**.
+- Buku selalu tampil sebagai **spread 2 halaman** seperti desktop, termasuk
+  pada HP portrait dan landscape. Sampul depan serta sampul belakang tetap
+  tampil sendirian.
 - Ukuran buku dihitung ulang otomatis saat resize/rotate **tanpa reload**.
 - Layar sangat pendek (HP landscape) otomatis merapatkan topbar/toolbar dan
   mengecilkan halaman secara visual supaya seluruh halaman tetap terlihat utuh
@@ -96,11 +163,30 @@ buku-menu/
   tombol panah, keyboard (← →, Home, End).
 - Zoom: tombol zoom (1× → 1,5× → 2×), pinch-to-zoom, ketuk-ganda untuk zoom &
   reset, geser (pan) saat zoom, roda mouse di desktop.
+- Layar buku menggunakan tata letak tetap yang aman di desktop dan HP tanpa
+  perubahan mode tampilan, sehingga tombol navigasi dan buku tetap berada di dalam
+  panggung yang terukur.
 - Toolbar melayang yang menyusut otomatis setelah 3,8 detik diam (muncul lagi
-  saat ada gerakan/ketukan).
+  saat ada gerakan/ketukan); tinggi toolbar **diukur otomatis** sehingga halaman
+  buku tidak pernah tertutup kendali — termasuk di HP sempit yang tombolnya
+  membungkus menjadi dua baris.
 - Drawer thumbnail: daftar semua halaman, bisa melompat ke halaman mana pun.
+- Status kosong informatif pada daftar halaman, dan **indikator tiga tahap**
+  penyusunan (01 ukuran → 02 unggah → 03 buka buku) dengan tanda centang saat
+  tuntas.
+
+**Bahasa & aksesibilitas**
+- Seluruh antarmuka memakai **bahasa Indonesia profesional** dengan sapaan
+  "Anda", satu istilah untuk satu hal (halaman, unggah, buku menu), dan pesan
+  galat yang menyebut masalah + langkah perbaikannya.
+- Kontras teks memenuhi **WCAG AA** pada tema terang & gelap (diuji otomatis).
+- `prefers-reduced-motion` dihormati (animasi & transisi dipercepat mendekati 0).
+- Target sentuh ≥ 44 px, `env(safe-area-inset-*)` untuk poni & home-indicator.
+- Setiap tombol/ikon memiliki `aria-label` bahasa Indonesia; ikon dekoratif
+  `aria-hidden`; bahasa gaul/bertele-tele dihindari.
+- Dapat dioperasikan penuh dengan keyboard: `←`/`→`, `Home`/`End`, `Tab`, dan
+  `Esc` (tutup laci atau kembali ke penyusun).
 - Bilah kemajuan (progress) + indikator halaman (mis. `3–4 / 12`) + input lompat.
-- Layar penuh (disembunyikan otomatis di peramban yang tidak mendukung).
 - Efek suara balik halaman (disintesis, tanpa file audio) + tombol on/off.
 - Mode **Terang/Gelap**: mengikuti setelan sistem (`prefers-color-scheme`) dan
   bisa dipaksa lewat tombol; pilihan disimpan di `localStorage` (`swipe-tema`).
@@ -134,7 +220,7 @@ Catatan:
   belakang supaya buku rapi.
 - Gambar unggahan yang lebarnya jauh melebihi kebutuhan otomatis dikompres &
   dikonversi ke WebP agar cepat (matikan di `config.js` → `book.kompresGambar`).
-- Menu contoh memakai rasio **portrait**. Bila bentuk buku diubah ke
+- Contoh menu memakai rasio **portrait**. Bila bentuk buku diubah ke
   *Landscape*, gambar portrait akan dipotong tengah (center-crop) untuk
   mengisi halaman yang lebar — sebaiknya unggah gambar berasio landscape.
 
@@ -173,7 +259,7 @@ book:  { orientasi: 'landscape', jilid: 'spiral' },  // bentuk & jilid bawaan
 sample: { autoLoad: false, pages: [] },              // sembunyikan menu contoh
 ```
 
-Ganti `assets/menu/*.svg` dengan gambar sendiri bila ingin menu contoh
+Ganti `assets/menu/*.svg` dengan gambar sendiri bila ingin contoh menu
 menggambarkan usaha Anda (atau daftarkan path gambar baru di `sample.pages`).
 
 ## 6. Catatan untuk Pengembangan Lanjutan (Multi-Klien)
@@ -183,7 +269,7 @@ Kode sengaja dibuat modular agar mudah ditambahi backend tanpa perombakan besar:
 - **`js/config.js`** → tinggal dibuat per klien (atau hasil fetch
   `/api/menu/<slug>` yang mengisi `window.APP_CONFIG` sebelum `app.js` jalan).
 - **`js/app.js`** dibagi blok bernomor: branding → tema → ukuran → unggah →
-  daftar halaman → flipbook → zoom → suara → fullscreen → layar → event.
+  daftar halaman → flipbook → zoom → suara → layar → event.
   Bagian unggah (`prosesFile`) adalah titik ganti bila nanti file dikirim ke
   server (Supabase/Cloudinary) alih-alih `URL.createObjectURL`.
 - **`state.pages`** sudah berupa daftar data murni (`{nama, url, w, h, fit}`),
@@ -201,10 +287,10 @@ berisi halaman aktif, hotspot produk, dan dukungan PDF.
 1. **Desktop**: buka `index.html`. Klik **Lihat Menu Contoh** → buku terbuka
    dengan 2 halaman berdampingan. Uji: klik sisi halaman, tarik sudut halaman,
    tombol ← →, `Home`/`End`, roda mouse untuk zoom, klik-ganda untuk zoom.
-2. **Mobile** (atau DevTools mode perangkat): halaman tampil **penuh satu per
-   satu**. Uji: swipe kiri/kanan, ketuk sisi kiri/kanan, ketuk ganda untuk
-   zoom, pinch untuk zoom, geser saat zoom, tombol drawer (daftar halaman),
-   tombol layar penuh, tombol tema.
+2. **Mobile** (atau DevTools mode perangkat): buku tampil sebagai spread
+   berdampingan, kecuali sampul. Uji: swipe kiri/kanan, ketuk sisi
+   kiri/kanan, ketuk ganda untuk zoom, pinch untuk zoom, geser saat zoom,
+   tombol drawer (daftar halaman), dan tombol tema.
 3. **Ganti bentuk & jilid**: di kartu *Ukuran*, pilih **Landscape**, lalu pilih
    **Spiral Kawat** pada baris *Jenis jilid* → tekan **Buka Buku Menu**.
    Perhatikan rasio halaman berubah (mis. `297,00 : 210,00`) dan tekstur
@@ -212,7 +298,7 @@ berisi halaman aktif, hotspot produk, dan dukungan PDF.
    - **Jilid Biasa**: punggung harus **polos** — tidak ada kawat, garis, atau
      lengkung apa pun. Yang terlihat hanya tepi kertas dan bayangan punggung.
    - **Cek kemiripan jilid kawat**: perbesar (Ctrl + `+` atau zoom browser) lalu
-     lihat tepi kiri halaman (mode 1 halaman) atau lipatan tengah (mode spread) —
+   lihat tepi kiri sampul atau lipatan tengah (mode spread) —
      kawat harus terlihat sebagai logam berkilau yang **melingkari tepi
      kertas** (sebagian cincin di luar kertas, sebagian menembus kertas), dengan **lubang tusuk gelap tepat di tengah tiap cincin** dan **bayangan
      jatuh** di bawahnya. Pada mode landscape (spread) cincin lebih lebar di **tengah
@@ -224,7 +310,7 @@ berisi halaman aktif, hotspot produk, dan dukungan PDF.
       (halaman pertama/terakhir), hanya sisi yang berisi halaman yang memakai
       tebal tumpukan — separuh yang kosong tetap bersih.
     - **Bandingkan gaya kawat**: buka `docs/banding-jilid.html` — tiga gaya
-      contoh tampil berdampingan dalam dua tampilan (satu halaman & buku
+      contoh tampil berdampingan dalam dua tampilan (sampul tunggal & buku
       terbuka), di atas latar gelap dan kertas krem; pilih yang paling cocok
       lalu beri tahu gaya mana (A/B/C) untuk dipasang.
 4. **Rotasi/resize**: putar perangkat atau ubah ukuran jendela → buku menghitung
@@ -236,10 +322,9 @@ berisi halaman aktif, hotspot produk, dan dukungan PDF.
    pengaturan.
 7. Buka DevTools → Console: **tidak boleh ada error**.
 
-### Otomatis (opsional, saat pengembangan)
-Folder ini diuji headless dengan Edge + `puppeteer-core`, mencakup 8 viewport
-(360×800, 390×844, 844×390, 932×430, 667×375, 768×1024, 1024×768, 1440×900):
-buka buku, navigasi keyboard, drawer + `Esc`, ukuran & pemusatan buku,
-bentuk landscape + jilid spiral, zoom, tombol suara, auto-hide toolbar,
-serta gestur sentuh (ketuk sisi = 1 halaman, ketuk ganda = zoom) dan mouse
-(klik sisi, klik sudut, klik ganda, tarik sudut) — hasilnya **nol error konsol**.
+### Pemeriksaan otomatis
+
+Alat bantu Playwright berada di `scripts/diagnostics/`. Jalankan dari root
+proyek dengan perintah npm di atas. Pengukuran landing menghasilkan laporan
+dan tangkapan layar pada direktori tujuan; skrip tersebut tidak mengubah
+berkas aplikasi.

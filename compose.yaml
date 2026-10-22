@@ -1,0 +1,19 @@
+services:
+  bukumenu:
+    image: swipemenu
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - swipemenu-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  swipemenu-data:

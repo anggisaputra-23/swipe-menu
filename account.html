@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Akun pemilik · Swipe.menu</title>
+  <script>
+    try {
+      const saved = localStorage.getItem('swipe-tema');
+      const theme = saved === 'terang' || saved === 'gelap' ? saved :
+        (matchMedia('(prefers-color-scheme: dark)').matches ? 'gelap' : 'terang');
+      document.documentElement.dataset.tema = theme;
+    } catch { document.documentElement.dataset.tema = 'terang'; }
+  </script>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/account.css">
+</head>
+<body class="account-page">
+  <header class="account-topbar">
+    <a class="wordmark" href="/" aria-label="Swipe.menu, halaman utama">
+      <img class="wordmark__ikon" src="/assets/logo.svg" alt="" width="38" height="38">
+      <span class="wordmark__teks">Swipe.menu</span>
+    </a>
+    <a class="btn btn--garis btn--kecil" href="/">Kembali ke penyusun</a>
+  </header>
+
+  <main class="account-main">
+    <section id="auth-panel" class="account-panel" aria-labelledby="auth-heading">
+      <p class="label-mono">Akun pemilik</p>
+      <h1 id="auth-heading">Masuk untuk menyimpan menu.</h1>
+      <p class="account-lead">Menu yang diterbitkan mendapat alamat sendiri dan bisa diperbarui dari akun ini.</p>
+      <div class="account-tabs" role="group" aria-label="Pilih masuk atau daftar">
+        <button id="tab-login" class="account-tab" type="button" aria-pressed="false">Masuk</button>
+        <button id="tab-register" class="account-tab is-active" type="button" aria-pressed="true">Buat akun</button>
+      </div>
+      <form id="register-form" class="account-form" novalidate>
+        <label for="register-email">Email</label>
+        <input id="register-email" class="kontrol" name="email" type="email" autocomplete="email" required maxlength="254">
+        <label for="register-password">Kata sandi</label>
+        <input id="register-password" class="kontrol" name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="128" aria-describedby="password-help">
+        <p id="password-help" class="kecil">Gunakan minimal 10 karakter.</p>
+        <button class="btn btn--utama btn--besar" type="submit">Buat akun</button>
+      </form>
+      <form id="login-form" class="account-form" hidden novalidate>
+        <label for="login-email">Email</label>
+        <input id="login-email" class="kontrol" name="email" type="email" autocomplete="email" required maxlength="254">
+        <label for="login-password">Kata sandi</label>
+        <input id="login-password" class="kontrol" name="password" type="password" autocomplete="current-password" required maxlength="128">
+        <button class="btn btn--utama btn--besar" type="submit">Masuk</button>
+      </form>
+      <p id="auth-message" class="account-message" role="alert" aria-live="polite" hidden></p>
+    </section>
+
+    <section id="dashboard-panel" class="account-dashboard" aria-labelledby="dashboard-heading" hidden>
+      <div class="dashboard-heading">
+        <div>
+          <p class="label-mono">Akun pemilik</p>
+          <h1 id="dashboard-heading">Menu yang kamu terbitkan</h1>
+          <p id="account-email" class="account-lead"></p>
+        </div>
+        <button id="logout-button" class="btn btn--garis" type="button">Keluar</button>
+      </div>
+      <div class="dashboard-actions">
+        <a class="btn btn--utama" href="/#alat">Buat menu baru</a>
+        <p class="kecil">Setiap link dapat dibuka pelanggan tanpa masuk ke akun.</p>
+      </div>
+      <div id="menu-list" class="account-menu-list" aria-live="polite"></div>
+      <p id="dashboard-message" class="account-message" role="status" aria-live="polite" hidden></p>
+    </section>
+  </main>
+  <script src="/js/account.js" defer></script>
+</body>
+</html>
