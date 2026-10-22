@@ -2321,10 +2321,15 @@
     } catch (error) {
       $('#screen-book').hidden = true;
       $('#menu-not-found').hidden = false;
-      $('#menu-not-found-message').textContent = error.status === 404
-        ? 'Link ini tidak ditemukan atau menunya sudah tidak tersedia.'
-        : 'Menu belum dapat dimuat. Periksa koneksi lalu muat ulang halaman.';
-      document.title = 'Menu tidak tersedia · Swipe.menu';
+      const notFound = error.status === 404;
+      $('#menu-not-found-heading').textContent = notFound ? 'Tautan menu belum aktif' : 'Menu belum dapat dimuat';
+      $('#menu-not-found-message').textContent = notFound
+        ? 'Belum ada menu yang diterbitkan pada tautan ini. Jika Anda pemiliknya, masuk ke akun untuk menerbitkan menu atau periksa kembali alamatnya.'
+        : 'Server belum berhasil memuat menu. Periksa koneksi internet lalu coba lagi.';
+      const retry = $('#menu-not-found-retry');
+      retry.href = location.href;
+      retry.hidden = notFound;
+      document.title = `${notFound ? 'Tautan menu belum aktif' : 'Menu belum dapat dimuat'} · Swipe.menu`;
     }
   }
 

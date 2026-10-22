@@ -1196,9 +1196,12 @@ html[data-menu-publik="true"] #btn-kembali { display: none; }
 }
 .menu-not-found h1 { margin: .2rem 0; font-family: var(--font-judul); font-size: var(--judul-bagian); }
 .menu-not-found p { margin: 0 0 .8rem; }
+.menu-not-found__actions { display: flex; flex-wrap: wrap; gap: .65rem; }
 @media (max-width: 640px) {
   .publish-fields { grid-template-columns: 1fr; }
   .publish-panel__actions > * { flex: 1 1 auto; }
+  .menu-not-found__actions { width: 100%; }
+  .menu-not-found__actions .btn { flex: 1 1 100%; }
 }
 
 /* ---- FAQ ---- */

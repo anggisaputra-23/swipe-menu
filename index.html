@@ -636,9 +636,13 @@
 
   <main id="menu-not-found" class="menu-not-found" hidden>
     <p class="label-mono">Swipe.menu</p>
-    <h1>Menu tidak tersedia</h1>
+    <h1 id="menu-not-found-heading">Tautan menu belum aktif</h1>
     <p id="menu-not-found-message" class="kecil" role="status"></p>
-    <a class="btn btn--utama" href="/">Kembali ke Swipe.menu</a>
+    <div class="menu-not-found__actions">
+      <a class="btn btn--utama" href="/akun">Masuk atau buat akun</a>
+      <a class="btn btn--garis" href="/">Kembali ke halaman utama</a>
+      <a id="menu-not-found-retry" class="btn btn--garis" href="/" hidden>Coba muat ulang</a>
+    </div>
   </main>
 
   <!-- Notifikasi singkat (toast). -->
