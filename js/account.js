@@ -12,13 +12,22 @@ function setMessage(element, message, error = false) {
 
 async function request(url, options = {}) {
   const { headers, ...requestOptions } = options;
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    ...requestOptions,
-    headers: { 'Content-Type': 'application/json', ...(headers || {}) }
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      credentials: 'same-origin',
+      ...requestOptions,
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(headers || {}) }
+    });
+  } catch {
+    throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet lalu coba lagi.');
+  }
   const data = response.status === 204 ? {} : await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Permintaan belum berhasil. Coba lagi.');
+  if (!response.ok) {
+    const error = new Error(data.error || 'Permintaan belum berhasil. Coba lagi.');
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -35,7 +44,7 @@ function chooseTab(mode) {
   $('#tab-register').classList.toggle('is-active', !isLogin);
   $('#tab-login').setAttribute('aria-pressed', String(isLogin));
   $('#tab-register').setAttribute('aria-pressed', String(!isLogin));
-  $('#auth-heading').textContent = isLogin ? 'Masuk ke akunmu.' : 'Buat akun pemilik.';
+  $('#auth-heading').textContent = isLogin ? 'Masuk ke akun pemilik.' : 'Buat akun pemilik.';
   setMessage(authMessage, '');
 }
 
@@ -110,7 +119,13 @@ async function loadDashboard(user) {
 
 async function submitAuth(form, endpoint) {
   const button = form.querySelector('button[type="submit"]');
+  const idleLabel = button.textContent;
+  const isRegister = endpoint === '/api/auth/register';
   button.disabled = true;
+  button.textContent = isRegister ? 'Membuat akun…' : 'Memeriksa akun…';
+  form.setAttribute('aria-busy', 'true');
+  $('#tab-login').disabled = true;
+  $('#tab-register').disabled = true;
   setMessage(authMessage, '');
   try {
     const values = Object.fromEntries(new FormData(form));
@@ -118,8 +133,23 @@ async function submitAuth(form, endpoint) {
     await loadDashboard(result.user);
     const returnPath = safeReturnPath();
     if (returnPath !== '/akun') location.assign(returnPath);
-  } catch (error) { setMessage(authMessage, error.message, true); }
-  finally { button.disabled = false; }
+  } catch (error) {
+    if (isRegister && error.status === 409) {
+      const email = form.elements.email.value;
+      chooseTab('login');
+      $('#login-email').value = email;
+      setMessage(authMessage, 'Email ini sudah terdaftar. Masuk dengan kata sandi akun Anda.');
+      $('#login-password').focus();
+    } else {
+      setMessage(authMessage, error.message, true);
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = idleLabel;
+    form.removeAttribute('aria-busy');
+    $('#tab-login').disabled = false;
+    $('#tab-register').disabled = false;
+  }
 }
 
 $('#tab-login').addEventListener('click', () => chooseTab('login'));
@@ -133,12 +163,22 @@ $('#login-form').addEventListener('submit', (event) => {
   submitAuth(event.currentTarget, '/api/auth/login');
 });
 $('#logout-button').addEventListener('click', async () => {
-  try { await request('/api/auth/logout', { method: 'POST', body: '{}' }); } catch { /* kembali ke formulir tetap aman */ }
-  dashboardPanel.hidden = true;
-  authPanel.hidden = false;
-  chooseTab('login');
+  const button = $('#logout-button');
+  button.disabled = true;
+  setMessage(dashboardMessage, 'Keluar dari akun…');
+  try {
+    await request('/api/auth/logout', { method: 'POST', body: '{}' });
+    dashboardPanel.hidden = true;
+    authPanel.hidden = false;
+    chooseTab('login');
+  } catch (error) {
+    setMessage(dashboardMessage, error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 });
 
+chooseTab('register');
 request('/api/auth/me')
   .then(({ user }) => user ? loadDashboard(user) : chooseTab('register'))
-  .catch((error) => setMessage(authMessage, error.message, true));
+  .catch((error) => setMessage(authMessage, `Status akun belum dapat diperiksa. ${error.message}`, true));

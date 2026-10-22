@@ -28,13 +28,13 @@
   <main class="account-main">
     <section id="auth-panel" class="account-panel" aria-labelledby="auth-heading">
       <p class="label-mono">Akun pemilik</p>
-      <h1 id="auth-heading">Masuk untuk menyimpan menu.</h1>
+      <h1 id="auth-heading">Buat akun pemilik.</h1>
       <p class="account-lead">Menu yang diterbitkan mendapat alamat sendiri dan bisa diperbarui dari akun ini.</p>
       <div class="account-tabs" role="group" aria-label="Pilih masuk atau daftar">
         <button id="tab-login" class="account-tab" type="button" aria-pressed="false">Masuk</button>
         <button id="tab-register" class="account-tab is-active" type="button" aria-pressed="true">Buat akun</button>
       </div>
-      <form id="register-form" class="account-form" novalidate>
+      <form id="register-form" class="account-form">
         <label for="register-email">Email</label>
         <input id="register-email" class="kontrol" name="email" type="email" autocomplete="email" required maxlength="254">
         <label for="register-password">Kata sandi</label>
@@ -42,7 +42,7 @@
         <p id="password-help" class="kecil">Gunakan minimal 10 karakter.</p>
         <button class="btn btn--utama btn--besar" type="submit">Buat akun</button>
       </form>
-      <form id="login-form" class="account-form" hidden novalidate>
+      <form id="login-form" class="account-form" hidden>
         <label for="login-email">Email</label>
         <input id="login-email" class="kontrol" name="email" type="email" autocomplete="email" required maxlength="254">
         <label for="login-password">Kata sandi</label>
